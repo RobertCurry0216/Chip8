@@ -54,7 +54,7 @@ view model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Time.every 100 Tick
 
 
@@ -92,7 +92,7 @@ render screen =
     |> List.indexedMap 
         (\i v -> 
             if v then
-                Just (getCoords i)
+                Just <| getCoords i
             else 
                 Nothing
         )

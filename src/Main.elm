@@ -5,22 +5,25 @@ import Html exposing (Html, div)
 import Time
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
+import Chip8 exposing (Cpu)
+import Chip8 exposing (defaultCpu)
+import Array
+import Chip8 exposing (fps)
 
 
 ---- MODEL ----
 
 
 type alias Model =
-    { screen : List Bool
-    , pointer : Int
+    { cpu : Cpu
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    (   { screen = List.repeat (64*32) True
-        , pointer = 0
-    }, Cmd.none )
+    ( { cpu = defaultCpu }
+    , Cmd.none 
+    )
 
 
 
@@ -36,9 +39,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
     Tick _ ->
-        model.screen
-        |> List.indexedMap (\i _ -> i == model.pointer)
-        |> (\s -> ({model | screen = s, pointer = model.pointer+1}, Cmd.none))
+        ( model, Cmd.none )
     _ -> ( model, Cmd.none )
 
 
@@ -49,13 +50,13 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div []
-        [ render model.screen
+        [ render <| Array.toList model.cpu.screenBuffer
         ]
 
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Time.every 100 Tick
+    Time.every (1000 / toFloat fps) Tick
 
 
 ---- PROGRAM ----

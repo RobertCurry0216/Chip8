@@ -1,4 +1,4 @@
-module Chip8 exposing (Cpu, defaultCpu, fps)
+module Chip8 exposing (Cpu, defaultCpu, fps, add8, sub8, shr8, shl8, add16, Byte8)
 import Array exposing (Array)
 import Bitwise exposing (shiftLeftBy, shiftRightBy, or, and)
 
@@ -28,7 +28,7 @@ type alias Byte16 = Int
 
 type alias Cpu =
   { memory : Array Byte8
-  , screenBuffer : Array Bool
+  , screenBuffer : Array Byte8
 
   -- registers
   , registers : Array Byte8
@@ -39,6 +39,9 @@ type alias Cpu =
   -- timers
   , timerDelay : Byte8
   , timerSound : Byte8
+
+  -- input
+  , keys : Array Bool
   }
 
 
@@ -47,9 +50,9 @@ emptyMemory =
   List.repeat 0xFFF 0  |> Array.fromList
 
 
-emptyBuffer : Array Bool
+emptyBuffer : Array Byte8
 emptyBuffer =
-  List.repeat (64*32) False |> Array.fromList
+  List.repeat (64*32) 0 |> Array.fromList
 
 
 emptyRegisters : Array Byte8
@@ -67,15 +70,86 @@ defaultCpu =
   , stack = []
   , timerDelay = 0
   , timerSound = 0
+  , keys = List.repeat 16 False |> Array.fromList
   }
 
 
 ---- Bitwise helpers ----
+toBitList : Byte8 -> List Int
+toBitList int =
+  [ Bitwise.shiftRightBy 7 int |> Bitwise.and 1
+  , Bitwise.shiftRightBy 6 int |> Bitwise.and 1
+  , Bitwise.shiftRightBy 5 int |> Bitwise.and 1
+  , Bitwise.shiftRightBy 4 int |> Bitwise.and 1
+  , Bitwise.shiftRightBy 3 int |> Bitwise.and 1
+  , Bitwise.shiftRightBy 2 int |> Bitwise.and 1
+  , Bitwise.shiftRightBy 1 int |> Bitwise.and 1
+  , Bitwise.and 1 int
+  ]
 
-overflow : Byte16 -> Byte8
-overflow =
+
+toByte8 : Int -> Byte8
+toByte8 =
+  and 0xFF
+
+
+toByte16 : Int -> Byte16
+toByte16 =
+  and 0xFFFF
+
+
+overflow8 : Int -> Byte8
+overflow8 =
   and 0x100
   >> shiftRightBy 8
+
+
+overflow16 : Int -> Byte16
+overflow16 =
+  and 0x10000
+  >> shiftRightBy 16
+
+
+operater8 : (Byte8 -> Byte8 -> Byte8 ) -> Byte8 -> Byte8 -> (Byte8, Int)
+operater8 op a b =
+  let
+      v = op a b
+  in
+  (toByte8 v, overflow8 v)
+  
+
+operater16 : (Byte16 -> Byte16 -> Byte16 ) -> Byte16 -> Byte16 -> (Byte16, Int)
+operater16 op a b =
+  let
+      v = op a b
+  in
+  (toByte16 v, overflow16 v)
+
+
+add8 : Byte8 -> Byte8 -> (Byte8, Int)
+add8 = 
+  operater8 (+)
+
+
+add16 : Byte16 -> Byte16 -> (Byte16, Int)
+add16 = 
+  operater16 (+)
+
+
+sub8 : Byte8 -> Byte8 -> (Byte8, Int)
+sub8 = 
+  operater8 (-)
+
+
+shr8 : Byte8 -> (Byte8, Int)
+shr8 value =
+  (shiftRightBy 1 value, and 1 value)
+
+
+shl8 : Byte8 -> (Byte8, Int)
+shl8 =
+  operater8 ( shiftLeftBy ) 1
+
 
 applyBitMask : Byte16 -> Byte16 -> Int
 applyBitMask mask word =
@@ -191,6 +265,15 @@ doNextOp prevcpu =
     noop 0x0000 prevcpu
 
 
+---- Cpu Helpers ----
+
+getRegValue : Cpu -> Byte8 -> Byte8
+getRegValue cpu vx =
+  cpu.registers
+    |> Array.get vx
+    |> Maybe.withDefault 0
+
+
 ---- Op Code Functions ----
 
 noop : Byte16 -> Cpu -> Cpu
@@ -279,9 +362,7 @@ op_4XKK : Byte16 -> Cpu -> Cpu
 op_4XKK opcode cpu =
   let
     vx =
-      cpu.registers
-      |> Array.get ( get0N00 opcode )
-      |> Maybe.withDefault -1
+      getRegValue cpu ( get0N00 opcode )
 
     kk =
       get00NN opcode
@@ -299,14 +380,10 @@ op_5XY0 : Byte16 -> Cpu -> Cpu
 op_5XY0 opcode cpu =
   let
     vx =
-      cpu.registers
-      |> Array.get ( get0N00 opcode )
-      |> Maybe.withDefault -1
+      getRegValue cpu ( get0N00 opcode )
 
     vy =
-      cpu.registers
-      |> Array.get ( get00N0 opcode )
-      |> Maybe.withDefault -1
+      getRegValue cpu ( get00N0 opcode )
   in
   if vx == vy then
     { cpu | pc = cpu.pc + 2 }
@@ -334,9 +411,7 @@ op_7XKK : Byte16 -> Cpu -> Cpu
 op_7XKK opcode cpu =
   let
     vx =
-      cpu.registers
-      |> Array.get ( get0N00 opcode )
-      |> Maybe.withDefault 0
+      getRegValue cpu ( get0N00 opcode )
 
     kk =
       get00NN opcode
@@ -354,9 +429,7 @@ op_8XY0 : Byte16 -> Cpu -> Cpu
 op_8XY0 opcode cpu =
   let
     vy =
-      cpu.registers
-      |> Array.get ( get00N0 opcode )
-      |> Maybe.withDefault 0
+      getRegValue cpu ( get00N0 opcode )
 
     registers =
       cpu.registers
@@ -372,14 +445,10 @@ op_8XY1 : Byte16 -> Cpu -> Cpu
 op_8XY1 opcode cpu =
   let
     vx =
-      cpu.registers
-      |> Array.get ( get0N00 opcode )
-      |> Maybe.withDefault 0
+      getRegValue cpu ( get0N00 opcode )
 
     vy =
-      cpu.registers
-      |> Array.get ( get00N0 opcode )
-      |> Maybe.withDefault 0
+      getRegValue cpu ( get00N0 opcode )
 
     registers =
       cpu.registers
@@ -397,14 +466,10 @@ op_8XY2 : Byte16 -> Cpu -> Cpu
 op_8XY2 opcode cpu =
   let
     vx =
-      cpu.registers
-      |> Array.get ( get0N00 opcode )
-      |> Maybe.withDefault 0
+      getRegValue cpu ( get0N00 opcode )
 
     vy =
-      cpu.registers
-      |> Array.get ( get00N0 opcode )
-      |> Maybe.withDefault 0
+      getRegValue cpu ( get00N0 opcode )
 
     registers =
       cpu.registers
@@ -421,14 +486,10 @@ op_8XY3 : Byte16 -> Cpu -> Cpu
 op_8XY3 opcode cpu =
   let
     vx =
-      cpu.registers
-      |> Array.get ( get0N00 opcode )
-      |> Maybe.withDefault 0
+      getRegValue cpu ( get0N00 opcode )
 
     vy =
-      cpu.registers
-      |> Array.get ( get00N0 opcode )
-      |> Maybe.withDefault 0
+      getRegValue cpu ( get00N0 opcode )
 
     registers =
       cpu.registers
@@ -443,7 +504,23 @@ op_8XY3 opcode cpu =
 -- The values of Vx and Vy are added together. If the result is greater than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0. Only the lowest 8 bits of the result are kept, and stored in Vx.
 op_8XY4 : Byte16 -> Cpu -> Cpu
 op_8XY4 opcode cpu =
-  cpu
+  let
+    vx =
+      getRegValue cpu ( get0N00 opcode )
+
+    vy =
+      getRegValue cpu ( get00N0 opcode )
+
+    (value, overflow) =
+      add8 vx vy
+
+    registers =
+      cpu.registers
+      |> Array.set ( get0N00 opcode ) value
+      |> Array.set 0xF overflow
+
+  in
+  { cpu | registers = registers }
 
 
 -- 8xy5 - SUB Vx, Vy
@@ -451,7 +528,23 @@ op_8XY4 opcode cpu =
 -- If Vx > Vy, then VF is set to 1, otherwise 0. Then Vy is subtracted from Vx, and the results stored in Vx.
 op_8XY5 : Byte16 -> Cpu -> Cpu
 op_8XY5 opcode cpu =
-  cpu
+  let
+    vx =
+      getRegValue cpu ( get0N00 opcode )
+
+    vy =
+      getRegValue cpu ( get00N0 opcode )
+
+    (value, overflow) =
+      sub8 vx vy
+
+    registers =
+      cpu.registers
+      |> Array.set ( get0N00 opcode ) value
+      |> Array.set 0xF ( Bitwise.complement overflow)
+
+  in
+  { cpu | registers = registers }
 
 
 -- 8xy6 - SHR Vx {, Vy}
@@ -459,7 +552,20 @@ op_8XY5 opcode cpu =
 -- If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0. Then Vx is divided by 2.
 op_8XY6 : Byte16 -> Cpu -> Cpu
 op_8XY6 opcode cpu =
-  cpu
+  let
+    vx =
+      getRegValue cpu ( get0N00 opcode )
+
+    (value, overflow) =
+      shr8 vx
+
+    registers =
+      cpu.registers
+      |> Array.set ( get0N00 opcode ) value
+      |> Array.set 0xF overflow
+
+  in
+  { cpu | registers = registers }
 
 
 -- 8xy7 - SUBN Vx, Vy
@@ -467,7 +573,23 @@ op_8XY6 opcode cpu =
 -- If Vy > Vx, then VF is set to 1, otherwise 0. Then Vx is subtracted from Vy, and the results stored in Vx.
 op_8XY7 : Byte16 -> Cpu -> Cpu
 op_8XY7 opcode cpu =
-  cpu
+  let
+    vx =
+      getRegValue cpu ( get0N00 opcode )
+
+    vy =
+      getRegValue cpu ( get00N0 opcode )
+
+    (value, overflow) =
+      sub8 vy vx
+
+    registers =
+      cpu.registers
+      |> Array.set ( get0N00 opcode ) value
+      |> Array.set 0xF ( Bitwise.complement overflow)
+
+  in
+  { cpu | registers = registers }
 
 
 -- 8xyE - SHL Vx {, Vy}
@@ -475,7 +597,20 @@ op_8XY7 opcode cpu =
 -- If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2.
 op_8XYE : Byte16 -> Cpu -> Cpu
 op_8XYE opcode cpu =
-  cpu
+  let
+    vx =
+      getRegValue cpu ( get0N00 opcode )
+
+    (value, overflow) =
+      shl8 vx
+
+    registers =
+      cpu.registers
+      |> Array.set ( get0N00 opcode ) value
+      |> Array.set 0xF overflow
+
+  in
+  { cpu | registers = registers }
 
 
 -- 9xy0 - SNE Vx, Vy
@@ -483,7 +618,17 @@ op_8XYE opcode cpu =
 -- The values of Vx and Vy are compared, and if they are not equal, the program counter is increased by 2.
 op_9XY0 : Byte16 -> Cpu -> Cpu
 op_9XY0 opcode cpu =
-  cpu
+  let
+    vx =
+      getRegValue cpu ( get0N00 opcode )
+
+    vy =
+      getRegValue cpu ( get00N0 opcode )
+  in
+  if vx /= vy then
+    { cpu | pc = cpu.pc + 2 }
+  else
+    cpu
 
 
 -- Annn - LD I, addr
@@ -491,7 +636,11 @@ op_9XY0 opcode cpu =
 -- The value of register I is set to nnn.
 op_ANNN : Byte16 -> Cpu -> Cpu
 op_ANNN opcode cpu =
-  cpu
+  let
+    value =
+      get0NNN opcode
+  in
+  { cpu | i = value }
 
 
 -- Bnnn - JP V0, addr
@@ -499,7 +648,17 @@ op_ANNN opcode cpu =
 -- The program counter is set to nnn plus the value of V0.
 op_BNNN : Byte16 -> Cpu -> Cpu
 op_BNNN opcode cpu =
-  cpu
+  let
+    v0 =
+      getRegValue cpu 0
+
+    nnn =
+      get0NNN opcode
+
+    (pc, _) =
+      add16 v0 nnn
+  in
+  { cpu | pc = pc }
 
 
 -- Cxkk - RND Vx, byte
@@ -507,7 +666,7 @@ op_BNNN opcode cpu =
 -- The interpreter generates a random number from 0 to 255, which is then ANDed with the value kk. The results are stored in Vx. See instruction 8xy2 for more information on AND.
 op_CXKK : Byte16 -> Cpu -> Cpu
 op_CXKK opcode cpu =
-  cpu
+  Debug.todo "random numbers"
 
 
 -- Dxyn - DRW Vx, Vy, nibble
@@ -515,7 +674,7 @@ op_CXKK opcode cpu =
 -- The interpreter reads n bytes from memory, starting at the address stored in I. These bytes are then displayed as sprites on screen at coordinates (Vx, Vy). Sprites are XORed onto the existing screen. If this causes any pixels to be erased, VF is set to 1, otherwise it is set to 0. If the sprite is positioned so part of it is outside the coordinates of the display, it wraps around to the opposite side of the screen. See instruction 8xy3 for more information on XOR, and section 2.4, Display, for more information on the Chip-8 screen and sprites.
 op_DXYN : Byte16 -> Cpu -> Cpu
 op_DXYN opcode cpu =
-  cpu
+  Debug.todo "draw sprites"
 
 
 -- Ex9E - SKP Vx

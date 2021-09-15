@@ -5,10 +5,9 @@ import Html exposing (Html, div)
 import Time
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
-import Chip8 exposing (Cpu)
-import Chip8 exposing (defaultCpu)
-import Array
-import Chip8 exposing (fps)
+import Chip8 exposing (..)
+import Array exposing (Array)
+import Bitwise
 
 
 ---- MODEL ----
@@ -50,7 +49,7 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div []
-        [ render <| Array.toList model.cpu.screenBuffer
+        [ render model.cpu.screenBuffer
         ]
 
 
@@ -86,10 +85,11 @@ getCoords idx =
     (x*10, y*10)
 
 
-
-render : List Bool -> Html msg
+render : Array Byte8 -> Html msg
 render screen =
     screen
+    |> Array.toList
+    |> List.map (\bit -> bit == 1)
     |> List.indexedMap 
         (\i v -> 
             if v then

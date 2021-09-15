@@ -7,7 +7,6 @@ import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Chip8 exposing (..)
 import Array exposing (Array)
-import Bitwise
 
 
 ---- MODEL ----

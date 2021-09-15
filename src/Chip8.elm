@@ -77,14 +77,14 @@ defaultCpu =
 ---- Bitwise helpers ----
 toBitList : Byte8 -> List Int
 toBitList int =
-  [ Bitwise.shiftRightBy 7 int |> Bitwise.and 1
-  , Bitwise.shiftRightBy 6 int |> Bitwise.and 1
-  , Bitwise.shiftRightBy 5 int |> Bitwise.and 1
-  , Bitwise.shiftRightBy 4 int |> Bitwise.and 1
-  , Bitwise.shiftRightBy 3 int |> Bitwise.and 1
-  , Bitwise.shiftRightBy 2 int |> Bitwise.and 1
-  , Bitwise.shiftRightBy 1 int |> Bitwise.and 1
-  , Bitwise.and 1 int
+  [ shiftRightBy 7 int |> and 1
+  , shiftRightBy 6 int |> and 1
+  , shiftRightBy 5 int |> and 1
+  , shiftRightBy 4 int |> and 1
+  , shiftRightBy 3 int |> and 1
+  , shiftRightBy 2 int |> and 1
+  , shiftRightBy 1 int |> and 1
+  , and 1 int
   ]
 
 
@@ -151,37 +151,31 @@ shl8 =
   operater8 ( shiftLeftBy ) 1
 
 
-applyBitMask : Byte16 -> Byte16 -> Int
-applyBitMask mask word =
-  and mask word
-
-
 get0NNN : Byte16 -> Int
 get0NNN = 
-  applyBitMask 0x0FFF
+  and 0x0FFF
 
 
 get0N00 : Byte16 -> Int
 get0N00 =
-  applyBitMask 0x0F00
+  and 0x0F00
   >> shiftRightBy 8
 
 
 get00N0 : Byte16 -> Int
 get00N0 =
-  applyBitMask 0x00F0
+  and 0x00F0
   >> shiftRightBy 4
 
 
 get000N : Byte16 -> Int
 get000N =
-  applyBitMask 0x000F
+  and 0x000F
 
 
 get00NN : Byte16 -> Int
 get00NN =
-  applyBitMask 0x00FF
-
+  and 0x00FF
 
 
 getNextOp : Cpu -> Result String (Byte16, Cpu)
@@ -672,9 +666,37 @@ op_CXKK opcode cpu =
 -- Dxyn - DRW Vx, Vy, nibble
 -- Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
 -- The interpreter reads n bytes from memory, starting at the address stored in I. These bytes are then displayed as sprites on screen at coordinates (Vx, Vy). Sprites are XORed onto the existing screen. If this causes any pixels to be erased, VF is set to 1, otherwise it is set to 0. If the sprite is positioned so part of it is outside the coordinates of the display, it wraps around to the opposite side of the screen. See instruction 8xy3 for more information on XOR, and section 2.4, Display, for more information on the Chip-8 screen and sprites.
+printByteToScreen : Cpu -> Int -> Int -> Int -> Cpu
+printByteToScreen cpu x y n =
+  let
+    idx =
+      x + y*64
+
+    bits =
+      cpu.memory
+      |> Array.get cpu.i
+      |> Maybe.withDefault 0
+      |> toBitList
+
+    buffer =
+      cpu.screenBuffer
+  in
+  cpu
+
+
 op_DXYN : Byte16 -> Cpu -> Cpu
 op_DXYN opcode cpu =
-  Debug.todo "draw sprites"
+  let
+    vx =
+      getRegValue cpu ( get0N00 opcode )
+
+    vy =
+      getRegValue cpu ( get00N0 opcode )
+
+    n =
+      get000N opcode
+  in
+  cpu
 
 
 -- Ex9E - SKP Vx

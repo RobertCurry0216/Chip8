@@ -1,4 +1,4 @@
-module Chip8 exposing (Cpu, defaultCpu, fps, add8, sub8, shr8, shl8, add16, Byte8)
+module Chip8 exposing (Cpu, defaultCpu, fps, add8, sub8, shr8, shl8, add16, Byte8, op_DXYN)
 import Array exposing (Array)
 import Bitwise exposing (shiftLeftBy, shiftRightBy, or, and)
 
@@ -666,22 +666,42 @@ op_CXKK opcode cpu =
 -- Dxyn - DRW Vx, Vy, nibble
 -- Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
 -- The interpreter reads n bytes from memory, starting at the address stored in I. These bytes are then displayed as sprites on screen at coordinates (Vx, Vy). Sprites are XORed onto the existing screen. If this causes any pixels to be erased, VF is set to 1, otherwise it is set to 0. If the sprite is positioned so part of it is outside the coordinates of the display, it wraps around to the opposite side of the screen. See instruction 8xy3 for more information on XOR, and section 2.4, Display, for more information on the Chip-8 screen and sprites.
-printByteToScreen : Cpu -> Int -> Int -> Int -> Cpu
-printByteToScreen cpu x y n =
+printBitToScreen : Int -> Array Byte8 -> Byte8  -> Byte8 -> (Bool, Array Byte8)
+printBitToScreen idx buffer bit oldBit =
+  let
+    newBit =
+      Bitwise.xor bit oldBit
+
+    collision =
+      oldBit == 1 && newBit == 0
+  in
+  (collision, Array.set idx newBit buffer)
+  
+
+printByteToScreen : Cpu -> Int -> Int -> Int -> ( Cpu, Bool )
+printByteToScreen cpu x y byte =
   let
     idx =
       x + y*64
 
     bits =
       cpu.memory
-      |> Array.get cpu.i
+      |> Array.get (cpu.i + byte)
       |> Maybe.withDefault 0
       |> toBitList
+      |> List.indexedMap (\a b -> (a,b))
 
-    buffer =
-      cpu.screenBuffer
+    (collision, screenBuffer) =
+      bits
+      |> List.foldl
+        (\(i, b) (col, buffer) -> 
+          Array.get (i + idx) buffer
+          |> Maybe.withDefault 0
+          |> printBitToScreen (i + idx) buffer b
+          |> (\(c, buf) -> (col || c, buf))
+        ) (False, cpu.screenBuffer)
   in
-  cpu
+  ({ cpu | screenBuffer = screenBuffer }, collision)
 
 
 op_DXYN : Byte16 -> Cpu -> Cpu
@@ -693,10 +713,21 @@ op_DXYN opcode cpu =
     vy =
       getRegValue cpu ( get00N0 opcode )
 
-    n =
+    (newcpu, collision) =
       get000N opcode
+      |> List.range 0
+      |> List.foldl (\off (c, _) ->
+        Array.get (c.i + off) c.memory
+        |> Maybe.withDefault 0
+        |> printByteToScreen cpu vx (vy + off) 
+      ) (cpu, False)
+
+    colByte =
+      if collision then 1 else 0
   in
-  cpu
+  { newcpu 
+  | registers = Array.set colByte 0xF newcpu.registers 
+  }
 
 
 -- Ex9E - SKP Vx

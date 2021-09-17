@@ -32,8 +32,7 @@ init =
 
 
 type Msg
-    = NoOp
-    | UpdateScreen Time.Posix
+    = UpdateScreen Time.Posix
     | DoOp Time.Posix
 
 

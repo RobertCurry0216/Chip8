@@ -1,6 +1,19 @@
-module Chip8 exposing (Cpu, Byte8, defaultCpu, doNextOp, loadIntoMemory, emptyBuffer, updateTimers)
+module Chip8 exposing 
+  ( Cpu
+  , Byte8
+  , defaultCpu
+  , doNextOp
+  , loadIntoMemory
+  , emptyBuffer
+  , updateTimers, ChipMsg
+  )
 import Array exposing (Array)
 import Bitwise exposing (shiftLeftBy, shiftRightBy, or, and)
+
+
+type ChipMsg
+  = Noop
+  | GetRandom
 
 
 --This might have to be replaced with an actual byte
@@ -208,56 +221,56 @@ getNextOpcode cpu =
       Err "Error getting Op Code"
 
 
-getOp : Byte16 -> Byte16 -> Cpu -> Cpu
-getOp opcode =
+doOp : Byte16 -> Cpu -> (ChipMsg, Cpu)
+doOp opcode =
   case and 0xF000 opcode of
     0x0000 ->
       case opcode of
-      0x00E0 -> op_00E0
-      0x00EE -> op_00EE
-      _ -> op_0NNN
-    0x1000 -> op_1NNN
-    0x2000 -> op_2NNN
-    0x3000 -> op_3XKK
-    0x4000 -> op_4XKK
-    0x5000 -> op_5XY0
-    0x6000 -> op_6XKK
-    0x7000 -> op_7XKK
+      0x00E0 -> op_00E0 opcode >> Tuple.pair Noop
+      0x00EE -> op_00EE opcode >> Tuple.pair Noop
+      _ -> op_0NNN opcode >> Tuple.pair Noop
+    0x1000 -> op_1NNN opcode >> Tuple.pair Noop
+    0x2000 -> op_2NNN opcode >> Tuple.pair Noop
+    0x3000 -> op_3XKK opcode >> Tuple.pair Noop
+    0x4000 -> op_4XKK opcode >> Tuple.pair Noop
+    0x5000 -> op_5XY0 opcode >> Tuple.pair Noop
+    0x6000 -> op_6XKK opcode >> Tuple.pair Noop
+    0x7000 -> op_7XKK opcode >> Tuple.pair Noop
     0x8000 ->
       case and 0x000F opcode of
-      0x0000 -> op_8XY0
-      0x0001 -> op_8XY1
-      0x0002 -> op_8XY2
-      0x0003 -> op_8XY3
-      0x0004 -> op_8XY4
-      0x0005 -> op_8XY5
-      0x0006 -> op_8XY6
-      0x0007 -> op_8XY7
-      0x000E -> op_8XYE            
-      _ -> noop
-    0x9000 -> op_9XY0
-    0xA000 -> op_ANNN
-    0xB000 -> op_BNNN
-    0xC000 -> op_CXKK
-    0xD000 -> op_DXYN
+      0x0000 -> op_8XY0 opcode >> Tuple.pair Noop
+      0x0001 -> op_8XY1 opcode >> Tuple.pair Noop
+      0x0002 -> op_8XY2 opcode >> Tuple.pair Noop
+      0x0003 -> op_8XY3 opcode >> Tuple.pair Noop
+      0x0004 -> op_8XY4 opcode >> Tuple.pair Noop
+      0x0005 -> op_8XY5 opcode >> Tuple.pair Noop
+      0x0006 -> op_8XY6 opcode >> Tuple.pair Noop
+      0x0007 -> op_8XY7 opcode >> Tuple.pair Noop
+      0x000E -> op_8XYE opcode >> Tuple.pair Noop
+      _ -> noop opcode >> Tuple.pair Noop
+    0x9000 -> op_9XY0 opcode >> Tuple.pair Noop
+    0xA000 -> op_ANNN opcode >> Tuple.pair Noop
+    0xB000 -> op_BNNN opcode >> Tuple.pair Noop
+    0xC000 -> op_CXKK opcode >> Tuple.pair Noop
+    0xD000 -> op_DXYN opcode >> Tuple.pair Noop
     0xE000 ->
       case and 0x00FF opcode of
-      0x009E -> op_EX9E
-      0x00A1 -> op_EXA1
-      _ -> noop
+      0x009E -> op_EX9E opcode >> Tuple.pair Noop
+      0x00A1 -> op_EXA1 opcode >> Tuple.pair Noop
+      _ -> noop opcode >> Tuple.pair Noop
     0xF000 ->
       case and 0x00FF opcode of
-      0x0007 -> op_FX07
-      0x000A -> op_FX0A
-      0x0015 -> op_FX15
-      0x0018 -> op_FX18
-      0x001E -> op_FX1E
-      0x0029 -> op_FX29
-      0x0033 -> op_FX33
-      0x0055 -> op_FX55
-      0x0065 -> op_FX65
-      _ -> noop
-    _ -> noop
+      0x0007 -> op_FX07 opcode >> Tuple.pair Noop
+      0x000A -> op_FX0A opcode >> Tuple.pair Noop
+      0x0015 -> op_FX15 opcode >> Tuple.pair Noop
+      0x0018 -> op_FX18 opcode >> Tuple.pair Noop
+      0x001E -> op_FX1E opcode >> Tuple.pair Noop
+      0x0029 -> op_FX29 opcode >> Tuple.pair Noop
+      0x0033 -> op_FX33 opcode >> Tuple.pair Noop
+      0x0055 -> op_FX55 opcode >> Tuple.pair Noop
+      0x0065 -> op_FX65 opcode >> Tuple.pair Noop
+      _ -> noop opcode >> Tuple.pair Noop
+    _ -> noop opcode >> Tuple.pair Noop
 
 ---- Cpu Helpers ----
 
@@ -268,7 +281,7 @@ doNextOp cpuIn =
   else
     case getNextOpcode cpuIn of
     Ok (opcode, cpu) ->
-      getOp opcode opcode cpu
+      doOp opcode cpu
     Err _ ->
       noop 0x0000 cpuIn
 

@@ -66,8 +66,8 @@ view { screenBuffer } =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-    [ --Time.every (1000 / toFloat fps) UpdateScreen
-    --, Time.every (1000 / toFloat opsPerSecond) DoOp
+    [ Time.every (1000 / 60) UpdateScreen
+    , Time.every (1000 / 400) DoOp
     ]
 
 

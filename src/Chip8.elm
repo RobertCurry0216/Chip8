@@ -1,4 +1,4 @@
-module Chip8 exposing (Cpu, defaultCpu, fps, Byte8)
+module Chip8 exposing (Cpu, Byte8, defaultCpu, fps, opsPerSecond, doNextOp, loadIntoMemory, emptyBuffer, updateTimers)
 import Array exposing (Array)
 import Bitwise exposing (shiftLeftBy, shiftRightBy, or, and)
 
@@ -11,11 +11,6 @@ fps =
 opsPerSecond : Int
 opsPerSecond =
   400
-
-
-opsPerFrame : Int
-opsPerFrame =
-  opsPerSecond // fps
 
 
 --This might have to be replaced with an actual byte
@@ -50,7 +45,7 @@ type alias Cpu =
 defaultMemory : Array Byte8
 defaultMemory =
   List.repeat 0xFAF 0
-  |> List.append hexSprites
+  --|> List.append hexSprites
   |> Array.fromList
 
 
@@ -64,89 +59,25 @@ emptyRegisters =
   List.repeat 0x010 0 |> Array.fromList
 
 
-hexSprites : List Byte8
-hexSprites =
-  [ 0xF0    
-  , 0x90
-  , 0x90
-  , 0x90
-  , 0xF0
-  , 0x20
-  , 0x60
-  , 0x20
-  , 0x20
-  , 0x70
-  , 0xF0
-  , 0x10
-  , 0xF0
-  , 0x80
-  , 0xF0
-  , 0xF0
-  , 0x10
-  , 0xF0
-  , 0x10
-  , 0xF0
-  , 0x90
-  , 0x90
-  , 0xF0
-  , 0x10
-  , 0x10
-  , 0xF0
-  , 0x80
-  , 0xF0
-  , 0x10
-  , 0xF0
-  , 0xF0
-  , 0x80
-  , 0xF0
-  , 0x90
-  , 0xF0
-  , 0xF0
-  , 0x10
-  , 0x20
-  , 0x40
-  , 0x40
-  , 0xF0
-  , 0x90
-  , 0xF0
-  , 0x90
-  , 0xF0
-  , 0xF0
-  , 0x90
-  , 0xF0
-  , 0x10
-  , 0xF0
-  , 0xF0
-  , 0x90
-  , 0xF0
-  , 0x90
-  , 0x90
-  , 0xE0
-  , 0x90
-  , 0xE0
-  , 0x90
-  , 0xE0
-  , 0xF0
-  , 0x80
-  , 0x80
-  , 0x80
-  , 0xF0
-  , 0xE0
-  , 0x90
-  , 0x90
-  , 0x90
-  , 0xE0
-  , 0xF0
-  , 0x80
-  , 0xF0
-  , 0x80
-  , 0xF0
-  , 0xF0
-  , 0x80
-  , 0xF0
-  , 0x80
-  , 0x80
-  ]
+-- hexSprites : List Byte8
+-- hexSprites =
+--   [0xF0 , 0x90, 0x90, 0x90, 0xF0] ++
+--   [ 0x20, 0x60, 0x20, 0x20, 0x70 ] ++
+--   [ 0xF0, 0x10, 0xF0, 0x80, 0xF0 ] ++
+--   [ 0xF0, 0x10, 0xF0, 0x10, 0xF0 ] ++
+--   [ 0x90, 0x90, 0xF0, 0x10, 0x10 ] ++
+--   [ 0xF0, 0x80, 0xF0, 0x10, 0xF0 ] ++
+--   [ 0xF0, 0x80, 0xF0, 0x90, 0xF0 ] ++
+--   [ 0xF0, 0x10, 0x20, 0x40, 0x40 ] ++
+--   [ 0xF0, 0x90, 0xF0, 0x90, 0xF0 ] ++
+--   [ 0xF0, 0x90, 0xF0, 0x10, 0xF0 ] ++
+--   [ 0xF0, 0x90, 0xF0, 0x90, 0x90 ] ++
+--   [ 0xE0, 0x90, 0xE0, 0x90, 0xE0 ] ++
+--   [ 0xF0, 0x80, 0x80, 0x80, 0xF0 ] ++
+--   [ 0xE0, 0x90, 0x90, 0x90, 0xE0 ] ++
+--   [ 0xF0, 0x80, 0xF0, 0x80, 0xF0 ] ++
+--   [ 0xF0, 0x80, 0xF0, 0x80, 0x80 ]
+
 
 defaultCpu : Cpu
 defaultCpu =
@@ -338,23 +269,27 @@ getOp opcode =
       _ -> noop
     _ -> noop
 
-
-doNextOp : Cpu -> Cpu
-doNextOp prevcpu =
-  case getNextOpcode prevcpu of
-  Ok (opcode, cpu) ->
-    getOp opcode opcode cpu
-  Err _ ->
-    noop 0x0000 prevcpu
-
-
 ---- Cpu Helpers ----
 
-getRegValue : Cpu -> Byte8 -> Byte8
-getRegValue cpu vx =
-  cpu.registers
-    |> Array.get vx
-    |> Maybe.withDefault 0
+doNextOp : Cpu -> Cpu
+doNextOp cpuIn =
+  if cpuIn.wait then
+    cpuIn
+  else
+    case getNextOpcode cpuIn of
+    Ok (opcode, cpu) ->
+      getOp opcode opcode cpu
+    Err _ ->
+      noop 0x0000 cpuIn
+
+
+updateTimers : Cpu -> Cpu
+updateTimers cpuIn =
+  { cpuIn 
+  | timerDelay = max 0 (cpuIn.timerDelay - 1)
+  , timerSound = max 0 (cpuIn.timerSound - 1)
+  }
+
 
 loadIntoMemory : Cpu -> Byte16 -> List Byte8 -> Cpu
 loadIntoMemory cpuIn start list =
@@ -365,6 +300,13 @@ loadIntoMemory cpuIn start list =
       Array.set (start + i) v cpu.memory
       |> (\mem -> {cpu | memory = mem})
     ) cpuIn
+
+
+getRegValue : Cpu -> Byte8 -> Byte8
+getRegValue cpu vx =
+  cpu.registers
+    |> Array.get vx
+    |> Maybe.withDefault 0
 
 ---- Op Code Functions ----
 

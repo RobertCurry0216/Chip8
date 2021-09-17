@@ -14,12 +14,15 @@ import Array exposing (Array)
 
 type alias Model =
     { cpu : Cpu
+    , screenBuffer : Array Byte8
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { cpu = defaultCpu }
+    ( { cpu = defaultCpu
+      , screenBuffer = emptyBuffer
+      }
     , Cmd.none 
     )
 
@@ -30,14 +33,22 @@ init =
 
 type Msg
     = NoOp
-    | Tick Time.Posix
+    | UpdateScreen Time.Posix
+    | DoOp Time.Posix
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-    Tick _ ->
-        ( model, Cmd.none )
+    UpdateScreen _ ->
+        ( { model
+          | screenBuffer = model.cpu.screenBuffer
+          , cpu = updateTimers model.cpu
+          }, Cmd.none )
+    DoOp _ ->
+        ({ model
+        | cpu = doNextOp model.cpu
+        }, Cmd.none)
     _ -> ( model, Cmd.none )
 
 
@@ -46,15 +57,18 @@ update msg model =
 
 
 view : Model -> Html Msg
-view model =
+view { screenBuffer } =
     div []
-        [ render model.cpu.screenBuffer
+        [ render screenBuffer
         ]
 
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Time.every (1000 / toFloat fps) Tick
+    Sub.batch
+    [ --Time.every (1000 / toFloat fps) UpdateScreen
+    --, Time.every (1000 / toFloat opsPerSecond) DoOp
+    ]
 
 
 ---- PROGRAM ----

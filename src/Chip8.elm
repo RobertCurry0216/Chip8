@@ -1,4 +1,4 @@
-module Chip8 exposing (Cpu, defaultCpu, fps, add8, sub8, shr8, shl8, add16, Byte8, op_DXYN)
+module Chip8 exposing (Cpu, defaultCpu, fps, Byte8)
 import Array exposing (Array)
 import Bitwise exposing (shiftLeftBy, shiftRightBy, or, and)
 
@@ -42,12 +42,16 @@ type alias Cpu =
 
   -- input
   , keys : Array Bool
+  , wait : Bool
+  , waitRegister : Byte8
   }
 
 
-emptyMemory : Array Byte8
-emptyMemory =
-  List.repeat 0xFFF 0  |> Array.fromList
+defaultMemory : Array Byte8
+defaultMemory =
+  List.repeat 0xFAF 0
+  |> List.append hexSprites
+  |> Array.fromList
 
 
 emptyBuffer : Array Byte8
@@ -60,9 +64,93 @@ emptyRegisters =
   List.repeat 0x010 0 |> Array.fromList
 
 
+hexSprites : List Byte8
+hexSprites =
+  [ 0xF0    
+  , 0x90
+  , 0x90
+  , 0x90
+  , 0xF0
+  , 0x20
+  , 0x60
+  , 0x20
+  , 0x20
+  , 0x70
+  , 0xF0
+  , 0x10
+  , 0xF0
+  , 0x80
+  , 0xF0
+  , 0xF0
+  , 0x10
+  , 0xF0
+  , 0x10
+  , 0xF0
+  , 0x90
+  , 0x90
+  , 0xF0
+  , 0x10
+  , 0x10
+  , 0xF0
+  , 0x80
+  , 0xF0
+  , 0x10
+  , 0xF0
+  , 0xF0
+  , 0x80
+  , 0xF0
+  , 0x90
+  , 0xF0
+  , 0xF0
+  , 0x10
+  , 0x20
+  , 0x40
+  , 0x40
+  , 0xF0
+  , 0x90
+  , 0xF0
+  , 0x90
+  , 0xF0
+  , 0xF0
+  , 0x90
+  , 0xF0
+  , 0x10
+  , 0xF0
+  , 0xF0
+  , 0x90
+  , 0xF0
+  , 0x90
+  , 0x90
+  , 0xE0
+  , 0x90
+  , 0xE0
+  , 0x90
+  , 0xE0
+  , 0xF0
+  , 0x80
+  , 0x80
+  , 0x80
+  , 0xF0
+  , 0xE0
+  , 0x90
+  , 0x90
+  , 0x90
+  , 0xE0
+  , 0xF0
+  , 0x80
+  , 0xF0
+  , 0x80
+  , 0xF0
+  , 0xF0
+  , 0x80
+  , 0xF0
+  , 0x80
+  , 0x80
+  ]
+
 defaultCpu : Cpu
 defaultCpu =
-  { memory = emptyMemory
+  { memory = defaultMemory
   , screenBuffer = emptyBuffer
   , registers = emptyRegisters
   , i = 0
@@ -71,6 +159,8 @@ defaultCpu =
   , timerDelay = 0
   , timerSound = 0
   , keys = List.repeat 16 False |> Array.fromList
+  , wait = False
+  , waitRegister = 0
   }
 
 
@@ -178,8 +268,8 @@ get00NN =
   and 0x00FF
 
 
-getNextOp : Cpu -> Result String (Byte16, Cpu)
-getNextOp cpu =
+getNextOpcode : Cpu -> Result String (Byte16, Cpu)
+getNextOpcode cpu =
   let
     byte1 =
       Array.get cpu.pc cpu.memory
@@ -251,10 +341,9 @@ getOp opcode =
 
 doNextOp : Cpu -> Cpu
 doNextOp prevcpu =
-  case getNextOp prevcpu of
+  case getNextOpcode prevcpu of
   Ok (opcode, cpu) ->
-    getOp opcode
-    |>(\op -> op opcode cpu)
+    getOp opcode opcode cpu
   Err _ ->
     noop 0x0000 prevcpu
 
@@ -267,6 +356,15 @@ getRegValue cpu vx =
     |> Array.get vx
     |> Maybe.withDefault 0
 
+loadIntoMemory : Cpu -> Byte16 -> List Byte8 -> Cpu
+loadIntoMemory cpuIn start list =
+  list
+  |> List.indexedMap Tuple.pair
+  |> List.foldl 
+    (\(i, v) cpu ->
+      Array.set (start + i) v cpu.memory
+      |> (\mem -> {cpu | memory = mem})
+    ) cpuIn
 
 ---- Op Code Functions ----
 
@@ -316,16 +414,9 @@ op_1NNN opcode cpu =
 -- The interpreter increments the stack pointer, then puts the current PC on the top of the stack. The PC is then set to nnn.
 op_2NNN : Byte16 -> Cpu -> Cpu
 op_2NNN opcode cpu =
-  let
-    pc =
-      get0NNN opcode
-
-    stack =
-      cpu.pc::cpu.stack
-  in
   { cpu
-  | stack = stack
-  , pc = pc
+  | stack = cpu.pc::cpu.stack
+  , pc = get0NNN opcode
   }
 
 
@@ -630,11 +721,7 @@ op_9XY0 opcode cpu =
 -- The value of register I is set to nnn.
 op_ANNN : Byte16 -> Cpu -> Cpu
 op_ANNN opcode cpu =
-  let
-    value =
-      get0NNN opcode
-  in
-  { cpu | i = value }
+  { cpu | i = get0NNN opcode }
 
 
 -- Bnnn - JP V0, addr
@@ -735,7 +822,16 @@ op_DXYN opcode cpu =
 -- Checks the keyboard, and if the key corresponding to the value of Vx is currently in the down position, PC is increased by 2.
 op_EX9E : Byte16 -> Cpu -> Cpu
 op_EX9E opcode cpu =
-  cpu
+  let
+    keydown =
+      cpu.keys
+      |> Array.get ( get0N00 opcode)
+      |> Maybe.withDefault False
+  in
+  if keydown then
+    { cpu | pc = cpu.pc + 2 }
+  else 
+    cpu
 
 
 -- ExA1 - SKNP Vx
@@ -743,7 +839,16 @@ op_EX9E opcode cpu =
 -- Checks the keyboard, and if the key corresponding to the value of Vx is currently in the up position, PC is increased by 2.
 op_EXA1 : Byte16 -> Cpu -> Cpu
 op_EXA1 opcode cpu =
-  cpu
+  let
+    keydown =
+      cpu.keys
+      |> Array.get ( get0N00 opcode)
+      |> Maybe.withDefault False
+  in
+  if keydown then
+    cpu
+  else 
+    { cpu | pc = cpu.pc + 2 }
 
 
 -- Fx07 - LD Vx, DT
@@ -751,7 +856,13 @@ op_EXA1 opcode cpu =
 -- The value of DT is placed into Vx.
 op_FX07 : Byte16 -> Cpu -> Cpu
 op_FX07 opcode cpu =
-  cpu
+  let
+    r =
+      getRegValue cpu ( get0N00 opcode )  
+  in
+  { cpu 
+  | registers = Array.set r cpu.timerDelay cpu.registers
+  }
 
 
 -- Fx0A - LD Vx, K
@@ -759,7 +870,10 @@ op_FX07 opcode cpu =
 -- All execution stops until a key is pressed, then the value of that key is stored in Vx.
 op_FX0A : Byte16 -> Cpu -> Cpu
 op_FX0A opcode cpu =
-  cpu
+  { cpu
+  | wait = True
+  , waitRegister = getRegValue cpu ( get0N00 opcode ) 
+  }
 
 
 -- Fx15 - LD DT, Vx
@@ -767,7 +881,9 @@ op_FX0A opcode cpu =
 -- DT is set equal to the value of Vx.
 op_FX15 : Byte16 -> Cpu -> Cpu
 op_FX15 opcode cpu =
-  cpu
+  { cpu 
+  | timerDelay = getRegValue cpu ( get0N00 opcode )
+  }
 
 
 -- Fx18 - LD ST, Vx
@@ -775,7 +891,9 @@ op_FX15 opcode cpu =
 -- ST is set equal to the value of Vx.
 op_FX18 : Byte16 -> Cpu -> Cpu
 op_FX18 opcode cpu =
-  cpu
+  { cpu 
+  | timerSound = getRegValue cpu ( get0N00 opcode )
+  }
 
 
 -- Fx1E - ADD I, Vx
@@ -783,7 +901,14 @@ op_FX18 opcode cpu =
 -- The values of I and Vx are added, and the results are stored in I.
 op_FX1E : Byte16 -> Cpu -> Cpu
 op_FX1E opcode cpu =
-  cpu
+  let
+    vx =
+      getRegValue cpu ( get0N00 opcode )
+
+    (value, _) =
+      add8 vx cpu.i
+  in
+  { cpu | i = value }
 
 
 -- Fx29 - LD F, Vx
@@ -791,7 +916,9 @@ op_FX1E opcode cpu =
 -- The value of I is set to the location for the hexadecimal sprite corresponding to the value of Vx. See section 2.4, Display, for more information on the Chip-8 hexadecimal font.
 op_FX29 : Byte16 -> Cpu -> Cpu
 op_FX29 opcode cpu =
-  cpu
+  {cpu
+  | i = 5 * get0N00 opcode
+  }
 
 
 -- Fx33 - LD B, Vx
@@ -799,7 +926,30 @@ op_FX29 opcode cpu =
 -- The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2.
 op_FX33 : Byte16 -> Cpu -> Cpu
 op_FX33 opcode cpu =
-  cpu
+  let
+    value =
+      getRegValue cpu (get0N00 opcode)
+
+    hundreds =
+      value // 100
+
+    tens =
+      value // 10
+      |> Basics.modBy 10
+
+    ones =
+      Basics.modBy 10 value
+
+    registers =
+      cpu.registers
+      |> Array.set cpu.i hundreds
+      |> Array.set (cpu.i + 1) tens
+      |> Array.set (cpu.i + 2) ones
+
+  in
+  {cpu
+  | registers = registers
+  }
 
 
 -- Fx55 - LD [I], Vx
@@ -807,7 +957,10 @@ op_FX33 opcode cpu =
 -- The interpreter copies the values of registers V0 through Vx into memory, starting at the address in I.
 op_FX55 : Byte16 -> Cpu -> Cpu
 op_FX55 opcode cpu =
-  cpu
+  cpu.registers
+  |> Array.toList
+  |> List.take (get0N00 opcode)
+  |> loadIntoMemory cpu cpu.i
 
 
 -- Fx65 - LD Vx, [I]
@@ -815,5 +968,12 @@ op_FX55 opcode cpu =
 -- The interpreter reads values from memory starting at location I into registers V0 through Vx.
 op_FX65 : Byte16 -> Cpu -> Cpu
 op_FX65 opcode cpu =
-  cpu
+  get0N00 opcode
+  |> List.range 0
+  |> List.foldl (\off regIn -> 
+    Array.get (cpu.i + off) cpu.memory
+    |> Maybe.withDefault 0
+    |> \v -> Array.set off v regIn
+  ) cpu.registers
+  |> \reg -> { cpu | registers = reg }
 

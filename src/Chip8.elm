@@ -1,11 +1,11 @@
 module Chip8 exposing 
   ( Cpu
-  , Byte8
+  , Byte
   , defaultCpu
   , doNextOp
   , loadIntoMemory
   , emptyBuffer
-  , updateTimers, ChipMsg
+  , updateTimers, ChipMsg, toBitList
   )
 import Array exposing (Array)
 import Bitwise exposing (shiftLeftBy, shiftRightBy, or, and)
@@ -17,52 +17,52 @@ type ChipMsg
 
 
 --This might have to be replaced with an actual byte
-type alias Byte8 = Int
+type alias Byte = Int
 
 
 --2 Bytes, might have to replaced with something else
-type alias Byte16 = Int
+type alias Word = Int
 
 
 type alias Cpu =
-  { memory : Array Byte8
-  , screenBuffer : Array Byte8
+  { memory : Array Byte
+  , screenBuffer : Array Byte
 
   -- registers
-  , registers : Array Byte8
-  , i : Byte16
-  , pc : Byte16
-  , stack : List Byte16
+  , registers : Array Byte
+  , i : Word
+  , pc : Word
+  , stack : List Word
 
   -- timers
-  , timerDelay : Byte8
-  , timerSound : Byte8
+  , timerDelay : Byte
+  , timerSound : Byte
 
   -- input
   , keys : Array Bool
   , wait : Bool
-  , waitRegister : Byte8
+  , waitRegister : Byte
   }
 
 
-defaultMemory : Array Byte8
+defaultMemory : Array Byte
 defaultMemory =
   List.repeat 0xFAF -1
   |> List.append hexSprites
   |> Array.fromList
 
 
-emptyBuffer : Array Byte8
+emptyBuffer : Array Byte
 emptyBuffer =
   List.repeat (64*32) 0 |> Array.fromList
 
 
-emptyRegisters : Array Byte8
+emptyRegisters : Array Byte
 emptyRegisters =
   List.repeat 0x010 0 |> Array.fromList
 
 
-hexSprites : List Byte8
+hexSprites : List Byte
 hexSprites =
   [ 0xF0, 0x90, 0x90, 0x90, 0xF0
   , 0x20, 0x60, 0x20, 0x20, 0x70 
@@ -99,7 +99,7 @@ defaultCpu =
 
 
 ---- Bitwise helpers ----
-toBitList : Byte8 -> List Int
+toBitList : Byte -> List Int
 toBitList int =
   [ shiftRightBy 7 int |> and 1
   , shiftRightBy 6 int |> and 1
@@ -112,97 +112,97 @@ toBitList int =
   ]
 
 
-toByte8 : Int -> Byte8
-toByte8 =
+toByte : Int -> Byte
+toByte =
   and 0xFF
 
 
-toByte16 : Int -> Byte16
-toByte16 =
+toWord : Int -> Word
+toWord =
   and 0xFFFF
 
 
-overflow8 : Int -> Byte8
+overflow8 : Int -> Byte
 overflow8 =
   and 0x100
   >> shiftRightBy 8
 
 
-overflow16 : Int -> Byte16
+overflow16 : Int -> Word
 overflow16 =
   and 0x10000
   >> shiftRightBy 16
 
 
-operater8 : (Byte8 -> Byte8 -> Byte8 ) -> Byte8 -> Byte8 -> (Byte8, Int)
+operater8 : (Byte -> Byte -> Byte ) -> Byte -> Byte -> (Byte, Int)
 operater8 op a b =
   let
       v = op a b
   in
-  (toByte8 v, overflow8 v)
+  (toByte v, overflow8 v)
   
 
-operater16 : (Byte16 -> Byte16 -> Byte16 ) -> Byte16 -> Byte16 -> (Byte16, Int)
+operater16 : (Word -> Word -> Word ) -> Word -> Word -> (Word, Int)
 operater16 op a b =
   let
       v = op a b
   in
-  (toByte16 v, overflow16 v)
+  (toWord v, overflow16 v)
 
 
-add8 : Byte8 -> Byte8 -> (Byte8, Int)
+add8 : Byte -> Byte -> (Byte, Int)
 add8 = 
   operater8 (+)
 
 
-add16 : Byte16 -> Byte16 -> (Byte16, Int)
+add16 : Word -> Word -> (Word, Int)
 add16 = 
   operater16 (+)
 
 
-sub8 : Byte8 -> Byte8 -> (Byte8, Int)
+sub8 : Byte -> Byte -> (Byte, Int)
 sub8 = 
   operater8 (-)
 
 
-shr8 : Byte8 -> (Byte8, Int)
+shr8 : Byte -> (Byte, Int)
 shr8 value =
   (shiftRightBy 1 value, and 1 value)
 
 
-shl8 : Byte8 -> (Byte8, Int)
+shl8 : Byte -> (Byte, Int)
 shl8 =
   operater8 ( shiftLeftBy ) 1
 
 
-get0NNN : Byte16 -> Int
+get0NNN : Word -> Int
 get0NNN = 
   and 0x0FFF
 
 
-get0N00 : Byte16 -> Int
+get0N00 : Word -> Int
 get0N00 =
   and 0x0F00
   >> shiftRightBy 8
 
 
-get00N0 : Byte16 -> Int
+get00N0 : Word -> Int
 get00N0 =
   and 0x00F0
   >> shiftRightBy 4
 
 
-get000N : Byte16 -> Int
+get000N : Word -> Int
 get000N =
   and 0x000F
 
 
-get00NN : Byte16 -> Int
+get00NN : Word -> Int
 get00NN =
   and 0x00FF
 
 
-getNextOpcode : Cpu -> Result String (Byte16, Cpu)
+getNextOpcode : Cpu -> Result String (Word, Cpu)
 getNextOpcode cpu =
   let
     byte1 =
@@ -221,56 +221,56 @@ getNextOpcode cpu =
       Err "Error getting Op Code"
 
 
-doOp : Byte16 -> Cpu -> (ChipMsg, Cpu)
+doOp : Word -> Cpu -> Cpu
 doOp opcode =
   case and 0xF000 opcode of
     0x0000 ->
       case opcode of
-      0x00E0 -> op_00E0 opcode >> Tuple.pair Noop
-      0x00EE -> op_00EE opcode >> Tuple.pair Noop
-      _ -> op_0NNN opcode >> Tuple.pair Noop
-    0x1000 -> op_1NNN opcode >> Tuple.pair Noop
-    0x2000 -> op_2NNN opcode >> Tuple.pair Noop
-    0x3000 -> op_3XKK opcode >> Tuple.pair Noop
-    0x4000 -> op_4XKK opcode >> Tuple.pair Noop
-    0x5000 -> op_5XY0 opcode >> Tuple.pair Noop
-    0x6000 -> op_6XKK opcode >> Tuple.pair Noop
-    0x7000 -> op_7XKK opcode >> Tuple.pair Noop
+      0x00E0 -> op_00E0 opcode
+      0x00EE -> op_00EE opcode
+      _ -> op_0NNN opcode
+    0x1000 -> op_1NNN opcode
+    0x2000 -> op_2NNN opcode
+    0x3000 -> op_3XKK opcode
+    0x4000 -> op_4XKK opcode
+    0x5000 -> op_5XY0 opcode
+    0x6000 -> op_6XKK opcode
+    0x7000 -> op_7XKK opcode
     0x8000 ->
       case and 0x000F opcode of
-      0x0000 -> op_8XY0 opcode >> Tuple.pair Noop
-      0x0001 -> op_8XY1 opcode >> Tuple.pair Noop
-      0x0002 -> op_8XY2 opcode >> Tuple.pair Noop
-      0x0003 -> op_8XY3 opcode >> Tuple.pair Noop
-      0x0004 -> op_8XY4 opcode >> Tuple.pair Noop
-      0x0005 -> op_8XY5 opcode >> Tuple.pair Noop
-      0x0006 -> op_8XY6 opcode >> Tuple.pair Noop
-      0x0007 -> op_8XY7 opcode >> Tuple.pair Noop
-      0x000E -> op_8XYE opcode >> Tuple.pair Noop
-      _ -> noop opcode >> Tuple.pair Noop
-    0x9000 -> op_9XY0 opcode >> Tuple.pair Noop
-    0xA000 -> op_ANNN opcode >> Tuple.pair Noop
-    0xB000 -> op_BNNN opcode >> Tuple.pair Noop
-    0xC000 -> op_CXKK opcode >> Tuple.pair Noop
-    0xD000 -> op_DXYN opcode >> Tuple.pair Noop
+      0x0000 -> op_8XY0 opcode
+      0x0001 -> op_8XY1 opcode
+      0x0002 -> op_8XY2 opcode
+      0x0003 -> op_8XY3 opcode
+      0x0004 -> op_8XY4 opcode
+      0x0005 -> op_8XY5 opcode
+      0x0006 -> op_8XY6 opcode
+      0x0007 -> op_8XY7 opcode
+      0x000E -> op_8XYE opcode
+      _ -> noop opcode
+    0x9000 -> op_9XY0 opcode
+    0xA000 -> op_ANNN opcode
+    0xB000 -> op_BNNN opcode
+    0xC000 -> op_CXKK opcode
+    0xD000 -> op_DXYN opcode
     0xE000 ->
       case and 0x00FF opcode of
-      0x009E -> op_EX9E opcode >> Tuple.pair Noop
-      0x00A1 -> op_EXA1 opcode >> Tuple.pair Noop
-      _ -> noop opcode >> Tuple.pair Noop
+      0x009E -> op_EX9E opcode
+      0x00A1 -> op_EXA1 opcode
+      _ -> noop opcode
     0xF000 ->
       case and 0x00FF opcode of
-      0x0007 -> op_FX07 opcode >> Tuple.pair Noop
-      0x000A -> op_FX0A opcode >> Tuple.pair Noop
-      0x0015 -> op_FX15 opcode >> Tuple.pair Noop
-      0x0018 -> op_FX18 opcode >> Tuple.pair Noop
-      0x001E -> op_FX1E opcode >> Tuple.pair Noop
-      0x0029 -> op_FX29 opcode >> Tuple.pair Noop
-      0x0033 -> op_FX33 opcode >> Tuple.pair Noop
-      0x0055 -> op_FX55 opcode >> Tuple.pair Noop
-      0x0065 -> op_FX65 opcode >> Tuple.pair Noop
-      _ -> noop opcode >> Tuple.pair Noop
-    _ -> noop opcode >> Tuple.pair Noop
+      0x0007 -> op_FX07 opcode
+      0x000A -> op_FX0A opcode
+      0x0015 -> op_FX15 opcode
+      0x0018 -> op_FX18 opcode
+      0x001E -> op_FX1E opcode
+      0x0029 -> op_FX29 opcode
+      0x0033 -> op_FX33 opcode
+      0x0055 -> op_FX55 opcode
+      0x0065 -> op_FX65 opcode
+      _ -> noop opcode
+    _ -> noop opcode
 
 ---- Cpu Helpers ----
 
@@ -294,7 +294,7 @@ updateTimers cpuIn =
   }
 
 
-loadIntoMemory : Cpu -> Byte16 -> List Byte8 -> Cpu
+loadIntoMemory : Cpu -> Word -> List Byte -> Cpu
 loadIntoMemory cpuIn start list =
   list
   |> List.indexedMap Tuple.pair
@@ -305,7 +305,7 @@ loadIntoMemory cpuIn start list =
     ) cpuIn
 
 
-getRegValue : Cpu -> Byte8 -> Byte8
+getRegValue : Cpu -> Byte -> Byte
 getRegValue cpu vx =
   cpu.registers
     |> Array.get vx
@@ -313,21 +313,21 @@ getRegValue cpu vx =
 
 ---- Op Code Functions ----
 
-noop : Byte16 -> Cpu -> Cpu
+noop : Word -> Cpu -> Cpu
 noop opcode cpu =
   Debug.log ("noop " ++ String.fromInt opcode)
   cpu
 
 -- 0nnn - SYS addr
 -- Jump to a machine code routine at nnn.
-op_0NNN : Byte16 -> Cpu -> Cpu
+op_0NNN : Word -> Cpu -> Cpu
 op_0NNN opcode cpu =
   {cpu | pc = get0NNN opcode}
 
 
 -- 00E0 - CLS
 -- Clear the display.
-op_00E0 : Byte16 -> Cpu -> Cpu
+op_00E0 : Word -> Cpu -> Cpu
 op_00E0 _ cpu =
   { cpu | screenBuffer = emptyBuffer }
 
@@ -335,7 +335,7 @@ op_00E0 _ cpu =
 -- 00EE - RET
 -- Return from a subroutine.
 -- The interpreter sets the program counter to the address at the top of the stack, then subtracts 1 from the stack pointer.
-op_00EE : Byte16 -> Cpu -> Cpu
+op_00EE : Word -> Cpu -> Cpu
 op_00EE _ cpu =
   case cpu.stack of
   pc::stack ->
@@ -350,7 +350,7 @@ op_00EE _ cpu =
 -- 1nnn - JP addr
 -- Jump to location nnn.
 -- The interpreter sets the program counter to nnn.
-op_1NNN : Byte16 -> Cpu -> Cpu
+op_1NNN : Word -> Cpu -> Cpu
 op_1NNN opcode cpu =
   {cpu | pc = get0NNN opcode}
 
@@ -358,7 +358,7 @@ op_1NNN opcode cpu =
 -- 2nnn - CALL addr
 -- Call subroutine at nnn.
 -- The interpreter increments the stack pointer, then puts the current PC on the top of the stack. The PC is then set to nnn.
-op_2NNN : Byte16 -> Cpu -> Cpu
+op_2NNN : Word -> Cpu -> Cpu
 op_2NNN opcode cpu =
   { cpu
   | stack = cpu.pc::cpu.stack
@@ -369,7 +369,7 @@ op_2NNN opcode cpu =
 -- 3xkk - SE Vx, byte
 -- Skip next instruction if Vx = kk.
 -- The interpreter compares register Vx to kk, and if they are equal, increments the program counter by 2.
-op_3XKK : Byte16 -> Cpu -> Cpu
+op_3XKK : Word -> Cpu -> Cpu
 op_3XKK opcode cpu =
   let
     vx =
@@ -389,7 +389,7 @@ op_3XKK opcode cpu =
 -- 4xkk - SNE Vx, byte
 -- Skip next instruction if Vx != kk.
 -- The interpreter compares register Vx to kk, and if they are not equal, increments the program counter by 2.
-op_4XKK : Byte16 -> Cpu -> Cpu
+op_4XKK : Word -> Cpu -> Cpu
 op_4XKK opcode cpu =
   let
     vx =
@@ -407,7 +407,7 @@ op_4XKK opcode cpu =
 -- 5xy0 - SE Vx, Vy
 -- Skip next instruction if Vx = Vy.
 -- The interpreter compares register Vx to register Vy, and if they are equal, increments the program counter by 2.
-op_5XY0 : Byte16 -> Cpu -> Cpu
+op_5XY0 : Word -> Cpu -> Cpu
 op_5XY0 opcode cpu =
   let
     vx =
@@ -425,7 +425,7 @@ op_5XY0 opcode cpu =
 -- 6xkk - LD Vx, byte
 -- Set Vx = kk.
 -- The interpreter puts the value kk into register Vx.
-op_6XKK : Byte16 -> Cpu -> Cpu
+op_6XKK : Word -> Cpu -> Cpu
 op_6XKK opcode cpu =
   let
     registers =
@@ -438,7 +438,7 @@ op_6XKK opcode cpu =
 -- 7xkk - ADD Vx, byte
 -- Set Vx = Vx + kk.
 -- Adds the value kk to the value of register Vx, then stores the result in Vx.
-op_7XKK : Byte16 -> Cpu -> Cpu
+op_7XKK : Word -> Cpu -> Cpu
 op_7XKK opcode cpu =
   let
     vx =
@@ -456,7 +456,7 @@ op_7XKK opcode cpu =
 -- 8xy0 - LD Vx, Vy
 -- Set Vx = Vy.
 -- Stores the value of register Vy in register Vx.
-op_8XY0 : Byte16 -> Cpu -> Cpu
+op_8XY0 : Word -> Cpu -> Cpu
 op_8XY0 opcode cpu =
   let
     vy =
@@ -472,7 +472,7 @@ op_8XY0 opcode cpu =
 -- 8xy1 - OR Vx, Vy
 -- Set Vx = Vx OR Vy.
 -- Performs a bitwise OR on the values of Vx and Vy, then stores the result in Vx. A bitwise OR compares the corrseponding bits from two values, and if either bit is 1, then the same bit in the result is also 1. Otherwise, it is 0.
-op_8XY1 : Byte16 -> Cpu -> Cpu
+op_8XY1 : Word -> Cpu -> Cpu
 op_8XY1 opcode cpu =
   let
     vx =
@@ -493,7 +493,7 @@ op_8XY1 opcode cpu =
 -- 8xy2 - AND Vx, Vy
 -- Set Vx = Vx AND Vy.
 -- Performs a bitwise AND on the values of Vx and Vy, then stores the result in Vx. A bitwise AND compares the corrseponding bits from two values, and if both bits are 1, then the same bit in the result is also 1. Otherwise, it is 0.
-op_8XY2 : Byte16 -> Cpu -> Cpu
+op_8XY2 : Word -> Cpu -> Cpu
 op_8XY2 opcode cpu =
   let
     vx =
@@ -513,7 +513,7 @@ op_8XY2 opcode cpu =
 -- 8xy3 - XOR Vx, Vy
 -- Set Vx = Vx XOR Vy.
 -- Performs a bitwise exclusive OR on the values of Vx and Vy, then stores the result in Vx. An exclusive OR compares the corrseponding bits from two values, and if the bits are not both the same, then the corresponding bit in the result is set to 1. Otherwise, it is 0.
-op_8XY3 : Byte16 -> Cpu -> Cpu
+op_8XY3 : Word -> Cpu -> Cpu
 op_8XY3 opcode cpu =
   let
     vx =
@@ -533,7 +533,7 @@ op_8XY3 opcode cpu =
 -- 8xy4 - ADD Vx, Vy
 -- Set Vx = Vx + Vy, set VF = carry.
 -- The values of Vx and Vy are added together. If the result is greater than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0. Only the lowest 8 bits of the result are kept, and stored in Vx.
-op_8XY4 : Byte16 -> Cpu -> Cpu
+op_8XY4 : Word -> Cpu -> Cpu
 op_8XY4 opcode cpu =
   let
     vx =
@@ -557,7 +557,7 @@ op_8XY4 opcode cpu =
 -- 8xy5 - SUB Vx, Vy
 -- Set Vx = Vx - Vy, set VF = NOT borrow.
 -- If Vx > Vy, then VF is set to 1, otherwise 0. Then Vy is subtracted from Vx, and the results stored in Vx.
-op_8XY5 : Byte16 -> Cpu -> Cpu
+op_8XY5 : Word -> Cpu -> Cpu
 op_8XY5 opcode cpu =
   let
     vx =
@@ -581,7 +581,7 @@ op_8XY5 opcode cpu =
 -- 8xy6 - SHR Vx {, Vy}
 -- Set Vx = Vx SHR 1.
 -- If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0. Then Vx is divided by 2.
-op_8XY6 : Byte16 -> Cpu -> Cpu
+op_8XY6 : Word -> Cpu -> Cpu
 op_8XY6 opcode cpu =
   let
     vx =
@@ -602,7 +602,7 @@ op_8XY6 opcode cpu =
 -- 8xy7 - SUBN Vx, Vy
 -- Set Vx = Vy - Vx, set VF = NOT borrow.
 -- If Vy > Vx, then VF is set to 1, otherwise 0. Then Vx is subtracted from Vy, and the results stored in Vx.
-op_8XY7 : Byte16 -> Cpu -> Cpu
+op_8XY7 : Word -> Cpu -> Cpu
 op_8XY7 opcode cpu =
   let
     vx =
@@ -626,7 +626,7 @@ op_8XY7 opcode cpu =
 -- 8xyE - SHL Vx {, Vy}
 -- Set Vx = Vx SHL 1.
 -- If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0. Then Vx is multiplied by 2.
-op_8XYE : Byte16 -> Cpu -> Cpu
+op_8XYE : Word -> Cpu -> Cpu
 op_8XYE opcode cpu =
   let
     vx =
@@ -647,7 +647,7 @@ op_8XYE opcode cpu =
 -- 9xy0 - SNE Vx, Vy
 -- Skip next instruction if Vx != Vy.
 -- The values of Vx and Vy are compared, and if they are not equal, the program counter is increased by 2.
-op_9XY0 : Byte16 -> Cpu -> Cpu
+op_9XY0 : Word -> Cpu -> Cpu
 op_9XY0 opcode cpu =
   let
     vx =
@@ -665,7 +665,7 @@ op_9XY0 opcode cpu =
 -- Annn - LD I, addr
 -- Set I = nnn.
 -- The value of register I is set to nnn.
-op_ANNN : Byte16 -> Cpu -> Cpu
+op_ANNN : Word -> Cpu -> Cpu
 op_ANNN opcode cpu =
   { cpu | i = get0NNN opcode }
 
@@ -673,7 +673,7 @@ op_ANNN opcode cpu =
 -- Bnnn - JP V0, addr
 -- Jump to location nnn + V0.
 -- The program counter is set to nnn plus the value of V0.
-op_BNNN : Byte16 -> Cpu -> Cpu
+op_BNNN : Word -> Cpu -> Cpu
 op_BNNN opcode cpu =
   let
     v0 =
@@ -691,7 +691,7 @@ op_BNNN opcode cpu =
 -- Cxkk - RND Vx, byte
 -- Set Vx = random byte AND kk.
 -- The interpreter generates a random number from 0 to 255, which is then ANDed with the value kk. The results are stored in Vx. See instruction 8xy2 for more information on AND.
-op_CXKK : Byte16 -> Cpu -> Cpu
+op_CXKK : Word -> Cpu -> Cpu
 op_CXKK opcode cpu =
   Debug.todo "random numbers"
 
@@ -699,7 +699,7 @@ op_CXKK opcode cpu =
 -- Dxyn - DRW Vx, Vy, nibble
 -- Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
 -- The interpreter reads n bytes from memory, starting at the address stored in I. These bytes are then displayed as sprites on screen at coordinates (Vx, Vy). Sprites are XORed onto the existing screen. If this causes any pixels to be erased, VF is set to 1, otherwise it is set to 0. If the sprite is positioned so part of it is outside the coordinates of the display, it wraps around to the opposite side of the screen. See instruction 8xy3 for more information on XOR, and section 2.4, Display, for more information on the Chip-8 screen and sprites.
-printBitToScreen : Int -> Array Byte8 -> Byte8  -> Byte8 -> (Bool, Array Byte8)
+printBitToScreen : Int -> Array Byte -> Byte  -> Byte -> (Bool, Array Byte)
 printBitToScreen idx buffer bit oldBit =
   let
     newBit =
@@ -718,9 +718,7 @@ printByteToScreen cpu x y byte =
       x + y*64
 
     bits =
-      cpu.memory
-      |> Array.get (cpu.i + byte)
-      |> Maybe.withDefault 0
+      byte
       |> toBitList
       |> List.indexedMap (\a b -> (a,b))
 
@@ -737,7 +735,7 @@ printByteToScreen cpu x y byte =
   ({ cpu | screenBuffer = screenBuffer }, collision)
 
 
-op_DXYN : Byte16 -> Cpu -> Cpu
+op_DXYN : Word -> Cpu -> Cpu
 op_DXYN opcode cpu =
   let
     vx =
@@ -748,25 +746,25 @@ op_DXYN opcode cpu =
 
     (newcpu, collision) =
       get000N opcode
-      |> List.range 0
+      |> List.range 1
       |> List.foldl (\off (c, _) ->
-        Array.get (c.i + off) c.memory
+        Array.get (c.i + off - 1) c.memory
         |> Maybe.withDefault 0
-        |> printByteToScreen cpu vx (vy + off) 
+        |> printByteToScreen c vx (vy + off) 
       ) (cpu, False)
 
     colByte =
       if collision then 1 else 0
   in
   { newcpu 
-  | registers = Array.set colByte 0xF newcpu.registers 
+  | registers = Array.set 0xF colByte newcpu.registers 
   }
 
 
 -- Ex9E - SKP Vx
 -- Skip next instruction if key with the value of Vx is pressed.
 -- Checks the keyboard, and if the key corresponding to the value of Vx is currently in the down position, PC is increased by 2.
-op_EX9E : Byte16 -> Cpu -> Cpu
+op_EX9E : Word -> Cpu -> Cpu
 op_EX9E opcode cpu =
   let
     keydown =
@@ -783,7 +781,7 @@ op_EX9E opcode cpu =
 -- ExA1 - SKNP Vx
 -- Skip next instruction if key with the value of Vx is not pressed.
 -- Checks the keyboard, and if the key corresponding to the value of Vx is currently in the up position, PC is increased by 2.
-op_EXA1 : Byte16 -> Cpu -> Cpu
+op_EXA1 : Word -> Cpu -> Cpu
 op_EXA1 opcode cpu =
   let
     keydown =
@@ -800,7 +798,7 @@ op_EXA1 opcode cpu =
 -- Fx07 - LD Vx, DT
 -- Set Vx = delay timer value.
 -- The value of DT is placed into Vx.
-op_FX07 : Byte16 -> Cpu -> Cpu
+op_FX07 : Word -> Cpu -> Cpu
 op_FX07 opcode cpu =
   let
     r =
@@ -814,7 +812,7 @@ op_FX07 opcode cpu =
 -- Fx0A - LD Vx, K
 -- Wait for a key press, store the value of the key in Vx.
 -- All execution stops until a key is pressed, then the value of that key is stored in Vx.
-op_FX0A : Byte16 -> Cpu -> Cpu
+op_FX0A : Word -> Cpu -> Cpu
 op_FX0A opcode cpu =
   { cpu
   | wait = True
@@ -825,7 +823,7 @@ op_FX0A opcode cpu =
 -- Fx15 - LD DT, Vx
 -- Set delay timer = Vx.
 -- DT is set equal to the value of Vx.
-op_FX15 : Byte16 -> Cpu -> Cpu
+op_FX15 : Word -> Cpu -> Cpu
 op_FX15 opcode cpu =
   { cpu 
   | timerDelay = getRegValue cpu ( get0N00 opcode )
@@ -835,7 +833,7 @@ op_FX15 opcode cpu =
 -- Fx18 - LD ST, Vx
 -- Set sound timer = Vx.
 -- ST is set equal to the value of Vx.
-op_FX18 : Byte16 -> Cpu -> Cpu
+op_FX18 : Word -> Cpu -> Cpu
 op_FX18 opcode cpu =
   { cpu 
   | timerSound = getRegValue cpu ( get0N00 opcode )
@@ -845,7 +843,7 @@ op_FX18 opcode cpu =
 -- Fx1E - ADD I, Vx
 -- Set I = I + Vx.
 -- The values of I and Vx are added, and the results are stored in I.
-op_FX1E : Byte16 -> Cpu -> Cpu
+op_FX1E : Word -> Cpu -> Cpu
 op_FX1E opcode cpu =
   let
     vx =
@@ -860,7 +858,7 @@ op_FX1E opcode cpu =
 -- Fx29 - LD F, Vx
 -- Set I = location of sprite for digit Vx.
 -- The value of I is set to the location for the hexadecimal sprite corresponding to the value of Vx. See section 2.4, Display, for more information on the Chip-8 hexadecimal font.
-op_FX29 : Byte16 -> Cpu -> Cpu
+op_FX29 : Word -> Cpu -> Cpu
 op_FX29 opcode cpu =
   {cpu
   | i = 5 * get0N00 opcode
@@ -870,7 +868,7 @@ op_FX29 opcode cpu =
 -- Fx33 - LD B, Vx
 -- Store BCD representation of Vx in memory locations I, I+1, and I+2.
 -- The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I, the tens digit at location I+1, and the ones digit at location I+2.
-op_FX33 : Byte16 -> Cpu -> Cpu
+op_FX33 : Word -> Cpu -> Cpu
 op_FX33 opcode cpu =
   let
     value =
@@ -901,7 +899,7 @@ op_FX33 opcode cpu =
 -- Fx55 - LD [I], Vx
 -- Store registers V0 through Vx in memory starting at location I.
 -- The interpreter copies the values of registers V0 through Vx into memory, starting at the address in I.
-op_FX55 : Byte16 -> Cpu -> Cpu
+op_FX55 : Word -> Cpu -> Cpu
 op_FX55 opcode cpu =
   cpu.registers
   |> Array.toList
@@ -912,7 +910,7 @@ op_FX55 opcode cpu =
 -- Fx65 - LD Vx, [I]
 -- Read registers V0 through Vx from memory starting at location I.
 -- The interpreter reads values from memory starting at location I into registers V0 through Vx.
-op_FX65 : Byte16 -> Cpu -> Cpu
+op_FX65 : Word -> Cpu -> Cpu
 op_FX65 opcode cpu =
   get0N00 opcode
   |> List.range 0

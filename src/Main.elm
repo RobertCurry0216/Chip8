@@ -7,6 +7,7 @@ import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Chip8 exposing (..)
 import Array exposing (Array)
+import Roms exposing (testRom)
 
 
 ---- MODEL ----
@@ -14,14 +15,14 @@ import Array exposing (Array)
 
 type alias Model =
     { cpu : Cpu
-    , screenBuffer : Array Byte8
+    , screen : Array Byte
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { cpu = defaultCpu
-      , screenBuffer = emptyBuffer
+    ( { cpu = loadIntoMemory defaultCpu 0x200 testRom
+      , screen = emptyBuffer
       }
     , Cmd.none 
     )
@@ -41,14 +42,13 @@ update msg model =
     case msg of
     UpdateScreen _ ->
         ( { model
-          | screenBuffer = model.cpu.screenBuffer
+          | screen = model.cpu.screenBuffer
           , cpu = updateTimers model.cpu
           }, Cmd.none )
     DoOp _ ->
         ({ model
         | cpu = doNextOp model.cpu
         }, Cmd.none)
-    _ -> ( model, Cmd.none )
 
 
 
@@ -56,9 +56,9 @@ update msg model =
 
 
 view : Model -> Html Msg
-view { screenBuffer } =
+view { screen } =
     div []
-        [ render screenBuffer
+        [ render screen
         ]
 
 
@@ -97,7 +97,7 @@ getCoords idx =
     (x*10, y*10)
 
 
-render : Array Byte8 -> Html msg
+render : Array Byte -> Html msg
 render screen =
     screen
     |> Array.toList

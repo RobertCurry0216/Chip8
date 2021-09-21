@@ -5,9 +5,13 @@ import Html exposing (Html, div)
 import Time
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
-import Chip8 exposing (..)
 import Array exposing (Array)
-import Roms exposing (testRom)
+import Roms exposing (..)
+import Browser.Events
+import Json.Decode as Decode
+import Dict
+import Chip8 exposing (Cpu, Byte, loadIntoMemory, defaultCpu, emptyBuffer, updateTimers, doNextOp)
+import Chip8 exposing (ChipMsg(..))
 
 
 ---- MODEL ----
@@ -24,31 +28,53 @@ init =
     ( { cpu = loadIntoMemory defaultCpu 0x200 testRom
       , screen = emptyBuffer
       }
-    , Cmd.none 
+    , Cmd.none
     )
-
 
 
 ---- UPDATE ----
 
 
 type Msg
-    = UpdateScreen Time.Posix
-    | DoOp Time.Posix
+    = UpdateScreen
+    | Chip8Msg ChipMsg
+    | KeyPressed Char
+    | KeyReleased Char
+    | FetchRandom
+    | Noop
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-    UpdateScreen _ ->
+    UpdateScreen ->
         ( { model
           | screen = model.cpu.screenBuffer
           , cpu = updateTimers model.cpu
           }, Cmd.none )
-    DoOp _ ->
-        ({ model
-        | cpu = doNextOp model.cpu
-        }, Cmd.none)
+    Chip8Msg _ ->
+        doNextOp model.cpu
+        |> (\(chipMsg, cpu) ->
+            case chipMsg of
+            InsertRandomInt ->
+                ({model | cpu = cpu}, Cmd.none)
+            Continue ->
+                ({model | cpu = cpu}, Cmd.none)
+        )
+    KeyPressed c ->
+        (   { model 
+            | cpu = handleKeyDown model.cpu c
+            }
+        ,   Cmd.none
+        )
+    KeyReleased c ->
+        (   { model 
+            | cpu = handleKeyUp model.cpu c
+            }
+        ,   Cmd.none
+        )
+    _ ->
+        (model, Cmd.none)
 
 
 
@@ -65,10 +91,71 @@ view { screen } =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-    [ Time.every (1000 / 60) UpdateScreen
-    , Time.every (1000 / 400) DoOp
+    [ Time.every (1000 / 60) (\_ -> UpdateScreen)
+    , Time.every (1000 / 400) (\_ -> Chip8Msg Continue)
+    , Browser.Events.onKeyDown (keyEvent KeyPressed)
+    , Browser.Events.onKeyUp (keyEvent KeyReleased)
     ]
 
+
+---- INPUT ----
+
+toKey : (Char -> Msg) -> String -> Msg
+toKey msg string =
+    case String.uncons string of
+    Just (char, "") ->
+        msg char
+    _ -> 
+        Noop
+
+
+keyEvent : (Char -> Msg) -> Decode.Decoder Msg
+keyEvent msg =
+    Decode.map (toKey msg) (Decode.field "key" Decode.string)
+
+
+keyMap =
+    Dict.fromList
+    [ ('q', 0)
+    , ('w', 1)
+    , ('e', 2)
+    , ('a', 3)
+    , ('s', 4)
+    , ('d', 5)
+    , ('z', 6)
+    , ('x', 7)
+    , ('c', 8)
+    , ('r', 9)
+    , ('f', 10)
+    , ('v', 11)
+    , ('t', 12)
+    , ('g', 13)
+    , ('b', 14)
+    , (' ', 15)
+    ]
+
+
+handleKeyDown : Cpu -> Char -> Cpu
+handleKeyDown cpuIn c =
+    case Dict.get c keyMap of
+    Just i ->
+        { cpuIn
+        | keys = Array.set i True cpuIn.keys
+        , wait = False
+        }
+    _ ->
+        cpuIn
+
+
+handleKeyUp : Cpu -> Char -> Cpu
+handleKeyUp cpuIn c =
+    case Dict.get c keyMap of
+    Just i ->
+        { cpuIn
+        | keys = Array.set i False cpuIn.keys
+        }
+    _ ->
+        cpuIn
 
 ---- PROGRAM ----
 

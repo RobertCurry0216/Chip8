@@ -763,9 +763,10 @@ op_DXYN opcode cpu =
 
     (newcpu, collision) =
       get000N opcode
-      |> List.range 1
+      |> (+) -1
+      |> List.range 0
       |> List.foldl (\off (c, _) ->
-        Array.get (c.i + off - 1) c.memory
+        Array.get (c.i + off) c.memory
         |> Maybe.withDefault 0
         |> printByteToScreen c vx (vy + off) 
       ) (cpu, False)

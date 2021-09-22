@@ -25,7 +25,7 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { cpu = loadIntoMemory defaultCpu 0x200 testRom
+    ( { cpu = loadIntoMemory defaultCpu 0x200 pongRom
       , screen = emptyBuffer
       }
     , Cmd.none
@@ -37,7 +37,7 @@ init =
 
 type Msg
     = UpdateScreen
-    | Chip8Msg ChipMsg
+    | ChipMsg ChipMsg
     | KeyPressed Char
     | KeyReleased Char
     | FetchRandom
@@ -52,7 +52,7 @@ update msg model =
           | screen = model.cpu.screenBuffer
           , cpu = updateTimers model.cpu
           }, Cmd.none )
-    Chip8Msg _ ->
+    ChipMsg _ ->
         doNextOp model.cpu
         |> (\(chipMsg, cpu) ->
             case chipMsg of
@@ -92,7 +92,7 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
     [ Time.every (1000 / 60) (\_ -> UpdateScreen)
-    , Time.every (1000 / 400) (\_ -> Chip8Msg Continue)
+    , Time.every (1000 / 400) (\_ -> ChipMsg Continue)
     , Browser.Events.onKeyDown (keyEvent KeyPressed)
     , Browser.Events.onKeyUp (keyEvent KeyReleased)
     ]
@@ -114,6 +114,7 @@ keyEvent msg =
     Decode.map (toKey msg) (Decode.field "key" Decode.string)
 
 
+keyMap : Dict.Dict Char Int
 keyMap =
     Dict.fromList
     [ ('q', 0)

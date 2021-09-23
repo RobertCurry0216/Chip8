@@ -10,6 +10,7 @@ module Chip8 exposing
   )
 import Array exposing (Array)
 import Bitwise exposing (shiftLeftBy, shiftRightBy, or, and)
+import Debugging exposing (intToHex)
 
 
 type ChipMsg
@@ -171,14 +172,14 @@ get0NNN =
   and 0x0FFF
 
 
-get0N00 : Word -> Int
-get0N00 =
+get0X00 : Word -> Int
+get0X00 =
   and 0x0F00
   >> shiftRightBy 8
 
 
-get00N0 : Word -> Int
-get00N0 =
+get00Y0 : Word -> Int
+get00Y0 =
   and 0x00F0
   >> shiftRightBy 4
 
@@ -188,8 +189,8 @@ get000N =
   and 0x000F
 
 
-get00NN : Word -> Int
-get00NN =
+get00KK : Word -> Int
+get00KK =
   and 0x00FF
 
 
@@ -212,69 +213,147 @@ getNextOpcode cpu =
       Err "Error getting Op Code"
 
 
-doOp : Word -> Cpu -> (ChipMsg, Cpu)
+doOp : Word -> Cpu -> (String, Cpu, ChipMsg)
 doOp opcode =
   case and 0xF000 opcode of
     0x0000 ->
       case opcode of
-      0x00E0 -> op_00E0 opcode >> Tuple.pair Continue
-      0x00EE -> op_00EE opcode >> Tuple.pair Continue
-      _ -> op_0NNN opcode >> Tuple.pair Continue
-    0x1000 -> op_1NNN opcode >> Tuple.pair Continue
-    0x2000 -> op_2NNN opcode >> Tuple.pair Continue
-    0x3000 -> op_3XKK opcode >> Tuple.pair Continue
-    0x4000 -> op_4XKK opcode >> Tuple.pair Continue
-    0x5000 -> op_5XY0 opcode >> Tuple.pair Continue
-    0x6000 -> op_6XKK opcode >> Tuple.pair Continue
-    0x7000 -> op_7XKK opcode >> Tuple.pair Continue
+      0x00E0 -> 
+        op_00E0 opcode 
+        >> \cpu -> (("op_00E0: " ++ (intToHex opcode)), cpu, Continue)
+      0x00EE -> 
+        op_00EE opcode 
+        >> \cpu -> (("op_00EE: " ++ (intToHex opcode)), cpu, Continue)
+      _ -> 
+        op_0NNN opcode 
+        >> \cpu -> (("op_0NNN: " ++ (intToHex opcode)), cpu, Continue)
+    0x1000 -> 
+      op_1NNN opcode 
+      >> \cpu -> (("op_1NNN: " ++ (intToHex opcode)), cpu, Continue)
+    0x2000 -> 
+      op_2NNN opcode 
+      >> \cpu -> (("op_2NNN: " ++ (intToHex opcode)), cpu, Continue)
+    0x3000 -> 
+      op_3XKK opcode 
+      >> \cpu -> (("op_3XKK: " ++ (intToHex opcode)), cpu, Continue)
+    0x4000 -> 
+      op_4XKK opcode 
+      >> \cpu -> (("op_4XKK: " ++ (intToHex opcode)), cpu, Continue)
+    0x5000 -> 
+      op_5XY0 opcode 
+      >> \cpu -> (("op_5XY0: " ++ (intToHex opcode)), cpu, Continue)
+    0x6000 -> 
+      op_6XKK opcode 
+      >> \cpu -> (("op_6XKK: " ++ (intToHex opcode)), cpu, Continue)
+    0x7000 -> 
+      op_7XKK opcode 
+      >> \cpu -> (("op_7XKK: " ++ (intToHex opcode)), cpu, Continue)
     0x8000 ->
-      case and 0x000F opcode of
-      0x0000 -> op_8XY0 opcode >> Tuple.pair Continue
-      0x0001 -> op_8XY1 opcode >> Tuple.pair Continue
-      0x0002 -> op_8XY2 opcode >> Tuple.pair Continue
-      0x0003 -> op_8XY3 opcode >> Tuple.pair Continue
-      0x0004 -> op_8XY4 opcode >> Tuple.pair Continue
-      0x0005 -> op_8XY5 opcode >> Tuple.pair Continue
-      0x0006 -> op_8XY6 opcode >> Tuple.pair Continue
-      0x0007 -> op_8XY7 opcode >> Tuple.pair Continue
-      0x000E -> op_8XYE opcode >> Tuple.pair Continue
-      _ -> noop opcode >> Tuple.pair Continue
-    0x9000 -> op_9XY0 opcode >> Tuple.pair Continue
-    0xA000 -> op_ANNN opcode >> Tuple.pair Continue
-    0xB000 -> op_BNNN opcode >> Tuple.pair Continue
-    0xC000 -> op_CXKK opcode >> Tuple.pair InsertRandomInt
-    0xD000 -> op_DXYN opcode >> Tuple.pair Continue
+      case and 0xF opcode of
+      0x0 -> 
+        op_8XY0 opcode 
+        >> \cpu -> (("op_8XY0: " ++ (intToHex opcode)), cpu, Continue)
+      0x1 -> 
+        op_8XY1 opcode 
+        >> \cpu -> (("op_8XY1: " ++ (intToHex opcode)), cpu, Continue)
+      0x2 -> 
+        op_8XY2 opcode 
+        >> \cpu -> (("op_8XY2: " ++ (intToHex opcode)), cpu, Continue)
+      0x3 -> 
+        op_8XY3 opcode 
+        >> \cpu -> (("op_8XY3: " ++ (intToHex opcode)), cpu, Continue)
+      0x4 -> 
+        op_8XY4 opcode 
+        >> \cpu -> (("op_8XY4: " ++ (intToHex opcode)), cpu, Continue)
+      0x5 -> 
+        op_8XY5 opcode 
+        >> \cpu -> (("op_8XY5: " ++ (intToHex opcode)), cpu, Continue)
+      0x6 -> 
+        op_8XY6 opcode 
+        >> \cpu -> (("op_8XY6: " ++ (intToHex opcode)), cpu, Continue)
+      0x7 -> 
+        op_8XY7 opcode 
+        >> \cpu -> (("op_8XY7: " ++ (intToHex opcode)), cpu, Continue)
+      0xE -> 
+        op_8XYE opcode 
+        >> \cpu -> (("op_8XYE: " ++ (intToHex opcode)), cpu, Continue)
+      _ -> 
+        noop opcode 
+        >> \cpu -> (("noop: " ++ (intToHex opcode)), cpu, Continue)
+    0x9000 -> 
+      op_9XY0 opcode 
+      >> \cpu -> (("op_9XY0: " ++ (intToHex opcode)), cpu, Continue)
+    0xA000 -> 
+      op_ANNN opcode 
+      >> \cpu -> (("op_ANNN: " ++ (intToHex opcode)), cpu, Continue)
+    0xB000 -> 
+      op_BNNN opcode 
+      >> \cpu -> (("op_BNNN: " ++ (intToHex opcode)), cpu, Continue)
+    0xC000 -> 
+      op_CXKK opcode 
+      >> \cpu -> (("op_CXKK: " ++ (intToHex opcode)), cpu, Continue)
+    0xD000 -> 
+      op_DXYN opcode 
+      >> \cpu -> (("op_DXYN: " ++ (intToHex opcode)), cpu, Continue)
     0xE000 ->
-      case and 0x00FF opcode of
-      0x009E -> op_EX9E opcode >> Tuple.pair Continue
-      0x00A1 -> op_EXA1 opcode >> Tuple.pair Continue
-      _ -> noop opcode >> Tuple.pair Continue
+      case and 0xFF opcode of
+      0x9E -> 
+        op_EX9E opcode 
+        >> \cpu -> (("op_EX9E: " ++ (intToHex opcode)), cpu, Continue)
+      0xA1 -> 
+        op_EXA1 opcode 
+        >> \cpu -> (("op_EXA1: " ++ (intToHex opcode)), cpu, Continue)
+      _ -> 
+        noop opcode 
+        >> \cpu -> (("noop: " ++ (intToHex opcode)), cpu, Continue)
     0xF000 ->
-      case and 0x00FF opcode of
-      0x0007 -> op_FX07 opcode >> Tuple.pair Continue
-      0x000A -> op_FX0A opcode >> Tuple.pair Continue
-      0x0015 -> op_FX15 opcode >> Tuple.pair Continue
-      0x0018 -> op_FX18 opcode >> Tuple.pair Continue
-      0x001E -> op_FX1E opcode >> Tuple.pair Continue
-      0x0029 -> op_FX29 opcode >> Tuple.pair Continue
-      0x0033 -> op_FX33 opcode >> Tuple.pair Continue
-      0x0055 -> op_FX55 opcode >> Tuple.pair Continue
-      0x0065 -> op_FX65 opcode >> Tuple.pair Continue
-      _ -> noop opcode >> Tuple.pair Continue
-    _ -> noop opcode >> Tuple.pair Continue
+      case and 0xFF opcode of
+      0x07 -> 
+        op_FX07 opcode 
+        >> \cpu -> (("op_FX07: " ++ (intToHex opcode)), cpu, Continue)
+      0x0A -> 
+        op_FX0A opcode 
+        >> \cpu -> (("op_FX0A: " ++ (intToHex opcode)), cpu, Continue)
+      0x15 -> 
+        op_FX15 opcode 
+        >> \cpu -> (("op_FX15: " ++ (intToHex opcode)), cpu, Continue)
+      0x18 -> 
+        op_FX18 opcode 
+        >> \cpu -> (("op_FX18: " ++ (intToHex opcode)), cpu, Continue)
+      0x1E -> 
+        op_FX1E opcode 
+        >> \cpu -> (("op_FX1E: " ++ (intToHex opcode)), cpu, Continue)
+      0x29 -> 
+        op_FX29 opcode 
+        >> \cpu -> (("op_FX29: " ++ (intToHex opcode)), cpu, Continue)
+      0x33 -> 
+        op_FX33 opcode 
+        >> \cpu -> (("op_FX33: " ++ (intToHex opcode)), cpu, Continue)
+      0x55 -> 
+        op_FX55 opcode 
+        >> \cpu -> (("op_FX55: " ++ (intToHex opcode)), cpu, Continue)
+      0x65 -> 
+        op_FX65 opcode 
+        >> \cpu -> (("op_FX65: " ++ (intToHex opcode)), cpu, Continue)
+      _ -> 
+        noop opcode 
+        >> \cpu -> (("noop: " ++ (intToHex opcode)), cpu, Continue)
+    _ -> 
+      noop opcode 
+      >> \cpu -> (("noop: " ++ (intToHex opcode)), cpu, Continue)
 
 ---- Cpu Helpers ----
 
-doNextOp : Cpu -> (ChipMsg, Cpu)
+doNextOp : Cpu -> (String, Cpu, ChipMsg)
 doNextOp cpuIn =
   if cpuIn.wait then
-    (Continue, cpuIn)
+    ("wait", cpuIn, Continue)
   else
     case getNextOpcode cpuIn of
     Ok (opcode, cpu) ->
       doOp opcode cpu
     Err _ ->
-      (Continue, noop 0x0000 cpuIn)
+      ("Error", noop 0x0000 cpuIn, Continue)
 
 
 updateTimers : Cpu -> Cpu
@@ -305,23 +384,20 @@ getRegValue cpu vx =
 ---- Op Code Functions ----
 
 noop : Word -> Cpu -> Cpu
-noop opcode cpu =
-  Debug.log ("noop " ++ String.fromInt opcode)
+noop _ cpu =
   cpu
 
 -- 0nnn - SYS addr
 -- Jump to a machine code routine at nnn.
 op_0NNN : Word -> Cpu -> Cpu
-op_0NNN opcode cpu =
-  Debug.log "op_0NNN"
-  {cpu | pc = get0NNN opcode}
+op_0NNN _ cpu =
+  cpu
 
 
 -- 00E0 - CLS
 -- Clear the display.
 op_00E0 : Word -> Cpu -> Cpu
 op_00E0 _ cpu =
-  Debug.log "op_00E0"
   { cpu | screenBuffer = emptyBuffer }
 
 
@@ -332,12 +408,12 @@ op_00EE : Word -> Cpu -> Cpu
 op_00EE _ cpu =
   case cpu.stack of
   pc::stack ->
-    Debug.log "op_00EE"
     { cpu
     | stack = stack
     , pc = pc
     }
-  _ -> 
+  _ ->
+    Debug.log "OOEE warning: no stack"
     cpu
 
 
@@ -346,7 +422,6 @@ op_00EE _ cpu =
 -- The interpreter sets the program counter to nnn.
 op_1NNN : Word -> Cpu -> Cpu
 op_1NNN opcode cpu =
-  Debug.log ("op_1NNN " ++ (String.fromInt opcode))
   {cpu | pc = get0NNN opcode}
 
 
@@ -355,7 +430,6 @@ op_1NNN opcode cpu =
 -- The interpreter increments the stack pointer, then puts the current PC on the top of the stack. The PC is then set to nnn.
 op_2NNN : Word -> Cpu -> Cpu
 op_2NNN opcode cpu =
-  Debug.log "op_2NNN"
   { cpu
   | stack = cpu.pc::cpu.stack
   , pc = get0NNN opcode
@@ -369,18 +443,14 @@ op_3XKK : Word -> Cpu -> Cpu
 op_3XKK opcode cpu =
   let
     vx =
-      cpu.registers
-      |> Array.get ( get0N00 opcode )
-      |> Maybe.withDefault -1
+      getRegValue cpu (get0X00 opcode)
 
     kk =
-      get00NN opcode
+      get00KK opcode
   in
   if vx == kk then
-    Debug.log "op_3XKK"
     { cpu | pc = cpu.pc + 2 }
   else
-    Debug.log "op_3XKK"
     cpu
 
 
@@ -391,13 +461,12 @@ op_4XKK : Word -> Cpu -> Cpu
 op_4XKK opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     kk =
-      get00NN opcode
+      get00KK opcode
   in
   if vx /= kk then
-    Debug.log "op_4XKK"
     { cpu | pc = cpu.pc + 2 }
   else
     cpu
@@ -410,16 +479,14 @@ op_5XY0 : Word -> Cpu -> Cpu
 op_5XY0 opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     vy =
-      getRegValue cpu ( get00N0 opcode )
+      getRegValue cpu ( get00Y0 opcode )
   in
   if vx == vy then
-    Debug.log "op_5XY0"
     { cpu | pc = cpu.pc + 2 }
   else
-    Debug.log "op_5XY0"
     cpu
 
 
@@ -431,9 +498,8 @@ op_6XKK opcode cpu =
   let
     registers =
       cpu.registers
-      |> Array.set ( get0N00 opcode ) ( get00NN opcode ) 
+      |> Array.set ( get0X00 opcode ) ( get00KK opcode ) 
   in
-  Debug.log "op_6XKK"
   { cpu | registers = registers }
 
 
@@ -444,17 +510,20 @@ op_7XKK : Word -> Cpu -> Cpu
 op_7XKK opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     kk =
-      get00NN opcode
+      get00KK opcode
+
+    (value, _) =
+      add8 vx kk
 
     registers =
       cpu.registers
-      |> Array.set ( get0N00 opcode ) ( vx + kk )
+      |> Array.set ( get0X00 opcode ) value
   in
-  Debug.log "op_7XKK"
   { cpu | registers = registers }
+
 
 -- 8xy0 - LD Vx, Vy
 -- Set Vx = Vy.
@@ -463,13 +532,12 @@ op_8XY0 : Word -> Cpu -> Cpu
 op_8XY0 opcode cpu =
   let
     vy =
-      getRegValue cpu ( get00N0 opcode )
+      getRegValue cpu ( get00Y0 opcode )
 
     registers =
       cpu.registers
-      |> Array.set ( get0N00 opcode ) vy
+      |> Array.set ( get0X00 opcode ) vy
   in
-  Debug.log "op_8XY0"
   { cpu | registers = registers }
 
 
@@ -480,17 +548,16 @@ op_8XY1 : Word -> Cpu -> Cpu
 op_8XY1 opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     vy =
-      getRegValue cpu ( get00N0 opcode )
+      getRegValue cpu ( get00Y0 opcode )
 
     registers =
       cpu.registers
-      |> Array.set ( get0N00 opcode ) ( or vx vy )
+      |> Array.set ( get0X00 opcode ) ( or vx vy )
 
   in
-  Debug.log "op_8XY1"
   { cpu | registers = registers }
 
 
@@ -502,17 +569,16 @@ op_8XY2 : Word -> Cpu -> Cpu
 op_8XY2 opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     vy =
-      getRegValue cpu ( get00N0 opcode )
+      getRegValue cpu ( get00Y0 opcode )
 
     registers =
       cpu.registers
-      |> Array.set ( get0N00 opcode ) ( and vx vy )
+      |> Array.set ( get0X00 opcode ) ( and vx vy )
 
   in
-  Debug.log "op_8XY2"
   { cpu | registers = registers }
 
 
@@ -523,17 +589,16 @@ op_8XY3 : Word -> Cpu -> Cpu
 op_8XY3 opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     vy =
-      getRegValue cpu ( get00N0 opcode )
+      getRegValue cpu ( get00Y0 opcode )
 
     registers =
       cpu.registers
-      |> Array.set ( get0N00 opcode ) ( Bitwise.xor vx vy )
+      |> Array.set ( get0X00 opcode ) ( Bitwise.xor vx vy )
 
   in
-  Debug.log "op_8XY3"
   { cpu | registers = registers }
 
 
@@ -544,21 +609,20 @@ op_8XY4 : Word -> Cpu -> Cpu
 op_8XY4 opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     vy =
-      getRegValue cpu ( get00N0 opcode )
+      getRegValue cpu ( get00Y0 opcode )
 
     (value, overflow) =
       add8 vx vy
 
     registers =
       cpu.registers
-      |> Array.set ( get0N00 opcode ) value
+      |> Array.set ( get0X00 opcode ) value
       |> Array.set 0xF overflow
 
   in
-  Debug.log "op_8XY4"
   { cpu | registers = registers }
 
 
@@ -569,21 +633,20 @@ op_8XY5 : Word -> Cpu -> Cpu
 op_8XY5 opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     vy =
-      getRegValue cpu ( get00N0 opcode )
+      getRegValue cpu ( get00Y0 opcode )
 
     (value, overflow) =
       sub8 vx vy
 
     registers =
       cpu.registers
-      |> Array.set ( get0N00 opcode ) value
+      |> Array.set ( get0X00 opcode ) value
       |> Array.set 0xF ( Bitwise.complement overflow)
 
   in
-  Debug.log "op_8XY5"
   { cpu | registers = registers }
 
 
@@ -594,18 +657,17 @@ op_8XY6 : Word -> Cpu -> Cpu
 op_8XY6 opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     (value, overflow) =
       shr8 vx
 
     registers =
       cpu.registers
-      |> Array.set ( get0N00 opcode ) value
+      |> Array.set ( get0X00 opcode ) value
       |> Array.set 0xF overflow
 
   in
-  Debug.log "op_8XY6"
   { cpu | registers = registers }
 
 
@@ -616,21 +678,20 @@ op_8XY7 : Word -> Cpu -> Cpu
 op_8XY7 opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     vy =
-      getRegValue cpu ( get00N0 opcode )
+      getRegValue cpu ( get00Y0 opcode )
 
     (value, overflow) =
       sub8 vy vx
 
     registers =
       cpu.registers
-      |> Array.set ( get0N00 opcode ) value
+      |> Array.set ( get0X00 opcode ) value
       |> Array.set 0xF ( Bitwise.complement overflow)
 
   in
-  Debug.log "op_8XY7"
   { cpu | registers = registers }
 
 
@@ -641,18 +702,17 @@ op_8XYE : Word -> Cpu -> Cpu
 op_8XYE opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     (value, overflow) =
       shl8 vx
 
     registers =
       cpu.registers
-      |> Array.set ( get0N00 opcode ) value
+      |> Array.set ( get0X00 opcode ) value
       |> Array.set 0xF overflow
 
   in
-  Debug.log "op_8XYE"
   { cpu | registers = registers }
 
 
@@ -663,16 +723,14 @@ op_9XY0 : Word -> Cpu -> Cpu
 op_9XY0 opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     vy =
-      getRegValue cpu ( get00N0 opcode )
+      getRegValue cpu ( get00Y0 opcode )
   in
   if vx /= vy then
-    Debug.log "op_9XY0"
     { cpu | pc = cpu.pc + 2 }
   else
-    Debug.log "op_9XY0"
     cpu
 
 
@@ -681,7 +739,6 @@ op_9XY0 opcode cpu =
 -- The value of register I is set to nnn.
 op_ANNN : Word -> Cpu -> Cpu
 op_ANNN opcode cpu =
-  Debug.log "op_ANNN"
   { cpu | i = get0NNN opcode }
 
 
@@ -700,7 +757,6 @@ op_BNNN opcode cpu =
     (pc, _) =
       add16 v0 nnn
   in
-  Debug.log "op_BNNN"
   { cpu | pc = pc }
 
 
@@ -709,8 +765,19 @@ op_BNNN opcode cpu =
 -- The interpreter generates a random number from 0 to 255, which is then ANDed with the value kk. The results are stored in Vx. See instruction 8xy2 for more information on AND.
 op_CXKK : Word -> Cpu -> Cpu
 op_CXKK opcode cpu =
-  Debug.log "op_CXKK"
-  Debug.todo "random numbers"
+  -- TODO: random numbers
+  let
+    rand =
+      1
+
+    vx =
+      get0X00 opcode
+      |> getRegValue cpu
+
+    kk =
+      get00KK opcode   
+  in
+  cpu
 
 
 -- Dxyn - DRW Vx, Vy, nibble
@@ -723,9 +790,12 @@ printBitToScreen idx buffer bit oldBit =
       Bitwise.xor bit oldBit
 
     collision =
-      oldBit == 1 && newBit == 0
+      Bitwise.and bit oldBit == 1
+
+    arrayOut =
+      Array.set idx newBit buffer
   in
-  (collision, Array.set idx newBit buffer)
+  (collision, arrayOut)
   
 
 printByteToScreen : Cpu -> Int -> Int -> Int -> ( Cpu, Bool )
@@ -756,25 +826,25 @@ op_DXYN : Word -> Cpu -> Cpu
 op_DXYN opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     vy =
-      getRegValue cpu ( get00N0 opcode )
+      getRegValue cpu ( get00Y0 opcode )
 
     (newcpu, collision) =
       get000N opcode
       |> (+) -1
       |> List.range 0
-      |> List.foldl (\off (c, _) ->
-        Array.get (c.i + off) c.memory
+      |> List.foldl (\off (cpuIn, col) ->
+        Array.get (cpuIn.i + off) cpuIn.memory
         |> Maybe.withDefault 0
-        |> printByteToScreen c vx (vy + off) 
+        |> printByteToScreen cpuIn vx (vy + off) 
+        |> (\(cpuOut, c) -> (cpuOut, c || col))
       ) (cpu, False)
 
     colByte =
       if collision then 1 else 0
   in
-  Debug.log "op_DXYN"
   { newcpu 
   | registers = Array.set 0xF colByte newcpu.registers 
   }
@@ -788,14 +858,12 @@ op_EX9E opcode cpu =
   let
     keydown =
       cpu.keys
-      |> Array.get ( get0N00 opcode)
+      |> Array.get ( get0X00 opcode)
       |> Maybe.withDefault False
   in
   if keydown then
-    Debug.log "op_EX9E"
     { cpu | pc = cpu.pc + 2 }
   else 
-    Debug.log "op_EX9E"
     cpu
 
 
@@ -807,14 +875,12 @@ op_EXA1 opcode cpu =
   let
     keydown =
       cpu.keys
-      |> Array.get ( get0N00 opcode)
+      |> Array.get ( get0X00 opcode)
       |> Maybe.withDefault False
   in
   if keydown then
-    Debug.log "op_EXA1"
     cpu
   else 
-    Debug.log "op_EXA1"
     { cpu | pc = cpu.pc + 2 }
 
 
@@ -823,13 +889,12 @@ op_EXA1 opcode cpu =
 -- The value of DT is placed into Vx.
 op_FX07 : Word -> Cpu -> Cpu
 op_FX07 opcode cpu =
-  let
-    r =
-      getRegValue cpu ( get0N00 opcode )  
+  let 
+    registers =
+      Array.set ( get0X00 opcode ) cpu.timerDelay cpu.registers
   in
-  Debug.log "op_FX07"
   { cpu 
-  | registers = Array.set r cpu.timerDelay cpu.registers
+  | registers = registers
   }
 
 
@@ -838,11 +903,14 @@ op_FX07 opcode cpu =
 -- All execution stops until a key is pressed, then the value of that key is stored in Vx.
 op_FX0A : Word -> Cpu -> Cpu
 op_FX0A opcode cpu =
-  Debug.log "op_FX0A"
+  Debug.log "wait"
   { cpu
   | wait = True
-  , waitRegister = getRegValue cpu ( get0N00 opcode ) 
+  , waitRegister = getRegValue cpu ( get0X00 opcode ) 
   }
+
+endWait =
+  Debug.todo "end Wait"
 
 
 -- Fx15 - LD DT, Vx
@@ -850,9 +918,8 @@ op_FX0A opcode cpu =
 -- DT is set equal to the value of Vx.
 op_FX15 : Word -> Cpu -> Cpu
 op_FX15 opcode cpu =
-  Debug.log "op_FX15"
   { cpu 
-  | timerDelay = getRegValue cpu ( get0N00 opcode )
+  | timerDelay = getRegValue cpu ( get0X00 opcode )
   }
 
 
@@ -861,9 +928,8 @@ op_FX15 opcode cpu =
 -- ST is set equal to the value of Vx.
 op_FX18 : Word -> Cpu -> Cpu
 op_FX18 opcode cpu =
-  Debug.log "op_FX18"
   { cpu 
-  | timerSound = getRegValue cpu ( get0N00 opcode )
+  | timerSound = getRegValue cpu ( get0X00 opcode )
   }
 
 
@@ -874,12 +940,11 @@ op_FX1E : Word -> Cpu -> Cpu
 op_FX1E opcode cpu =
   let
     vx =
-      getRegValue cpu ( get0N00 opcode )
+      getRegValue cpu ( get0X00 opcode )
 
     (value, _) =
-      add8 vx cpu.i
+      add16 vx cpu.i
   in
-  Debug.log "op_FX1E"
   { cpu | i = value }
 
 
@@ -888,9 +953,8 @@ op_FX1E opcode cpu =
 -- The value of I is set to the location for the hexadecimal sprite corresponding to the value of Vx. See section 2.4, Display, for more information on the Chip-8 hexadecimal font.
 op_FX29 : Word -> Cpu -> Cpu
 op_FX29 opcode cpu =
-  Debug.log "op_FX29"
   {cpu
-  | i = 5 * get0N00 opcode
+  | i = 5 * get0X00 opcode
   }
 
 
@@ -901,7 +965,7 @@ op_FX33 : Word -> Cpu -> Cpu
 op_FX33 opcode cpu =
   let
     value =
-      getRegValue cpu (get0N00 opcode)
+      getRegValue cpu (get0X00 opcode)
 
     hundreds =
       value // 100
@@ -920,7 +984,6 @@ op_FX33 opcode cpu =
       |> Array.set (cpu.i + 2) ones
 
   in
-  Debug.log "op_FX33"
   {cpu
   | registers = registers
   }
@@ -931,10 +994,9 @@ op_FX33 opcode cpu =
 -- The interpreter copies the values of registers V0 through Vx into memory, starting at the address in I.
 op_FX55 : Word -> Cpu -> Cpu
 op_FX55 opcode cpu =
-  Debug.log "op_FX55"
   cpu.registers
   |> Array.toList
-  |> List.take (get0N00 opcode)
+  |> List.take (get0X00 opcode)
   |> loadIntoMemory cpu cpu.i
 
 
@@ -943,8 +1005,7 @@ op_FX55 opcode cpu =
 -- The interpreter reads values from memory starting at location I into registers V0 through Vx.
 op_FX65 : Word -> Cpu -> Cpu
 op_FX65 opcode cpu =
-  Debug.log "op_FX65"
-  get0N00 opcode
+  get0X00 opcode
   |> List.range 0
   |> List.foldl (\off regIn -> 
     Array.get (cpu.i + off) cpu.memory

@@ -10,8 +10,16 @@ import Roms exposing (..)
 import Browser.Events
 import Json.Decode as Decode
 import Dict
-import Chip8 exposing (Cpu, Byte, loadIntoMemory, defaultCpu, emptyBuffer, updateTimers, doNextOp)
-import Chip8 exposing (ChipMsg(..))
+import Chip8 exposing 
+    ( Cpu
+    , Byte
+    , ChipMsg(..)
+    , loadIntoMemory
+    , defaultCpu
+    , emptyBuffer
+    , updateTimers
+    , doNextOp
+    )
 
 
 ---- MODEL ----
@@ -20,13 +28,15 @@ import Chip8 exposing (ChipMsg(..))
 type alias Model =
     { cpu : Cpu
     , screen : Array Byte
+    , op : String
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { cpu = loadIntoMemory defaultCpu 0x200 pongRom
+    ( { cpu = loadIntoMemory defaultCpu 0x200 tetrisRom
       , screen = emptyBuffer
+      , op = "init"
       }
     , Cmd.none
     )
@@ -54,14 +64,14 @@ update msg model =
           }, Cmd.none )
     ChipMsg _ ->
         doNextOp model.cpu
-        |> (\(chipMsg, cpu) ->
-            case chipMsg of
-            InsertRandomInt ->
-                ({model | cpu = cpu}, Cmd.none)
-            Continue ->
-                ({model | cpu = cpu}, Cmd.none)
+        |> (\(opString, cpu, chipMsg) ->
+            ( { model
+                | screen = cpu.screenBuffer
+                , cpu = updateTimers cpu
+                , op = opString
+                }, Cmd.none )
         )
-    KeyPressed c ->
+    KeyPressed c -> -- TODO: add keypress wait
         (   { model 
             | cpu = handleKeyDown model.cpu c
             }

@@ -1,4 +1,5 @@
 import './main.css';
+import './pico.css';
 import { Elm } from './Main.elm';
 import * as serviceWorker from './serviceWorker';
 // import fs from 'fs';

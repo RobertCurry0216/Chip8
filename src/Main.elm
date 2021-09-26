@@ -1,7 +1,20 @@
 module Main exposing (..)
 
+import Html exposing 
+    ( Html
+    , div
+    , main_
+    , button
+    , nav
+    , ul
+    , li
+    , strong
+    , select
+    , option
+    , h1
+    )
+import Html.Events as E
 import Browser
-import Html exposing (Html, div)
 import Time
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
@@ -28,7 +41,8 @@ import Chip8 exposing
 type alias Model =
     { cpu : Cpu
     , screen : Array Byte
-    , op : String
+    , currentOp : String
+    , run : Bool
     }
 
 
@@ -36,7 +50,8 @@ init : ( Model, Cmd Msg )
 init =
     ( { cpu = loadIntoMemory defaultCpu 0x200 tetrisRom
       , screen = emptyBuffer
-      , op = "init"
+      , currentOp = "init"
+      , run = False
       }
     , Cmd.none
     )
@@ -48,8 +63,9 @@ init =
 type Msg
     = UpdateScreen
     | ChipMsg ChipMsg
-    | KeyPressed Char
-    | KeyReleased Char
+    | InputPressed Int
+    | InputReleased Int
+    | SetEmulatorRun Bool
     | FetchRandom
     | Noop
 
@@ -68,21 +84,23 @@ update msg model =
             ( { model
                 | screen = cpu.screenBuffer
                 , cpu = updateTimers cpu
-                , op = opString
+                , currentOp = opString
                 }, Cmd.none )
         )
-    KeyPressed c -> -- TODO: add keypress wait
+    InputPressed c -> -- TODO: add keypress wait
         (   { model 
-            | cpu = handleKeyDown model.cpu c
+            | cpu = handleInputDown model.cpu c
             }
         ,   Cmd.none
         )
-    KeyReleased c ->
+    InputReleased c ->
         (   { model 
-            | cpu = handleKeyUp model.cpu c
+            | cpu = handleInputUp model.cpu c
             }
         ,   Cmd.none
         )
+    SetEmulatorRun b ->
+        ( {model | run = b}, Cmd.none)
     _ ->
         (model, Cmd.none)
 
@@ -92,19 +110,135 @@ update msg model =
 
 
 view : Model -> Html Msg
-view { screen } =
-    div []
-        [ render screen
+view { screen, run } =
+    main_ [ class "container" ]
+        [ nav []
+            [ ul []
+                [ li []
+                    [ h1 [][ strong [][ text "Chip-8"] ] ]
+                ]
+            , ul []
+                [ li [][ button [ class "outline", E.onClick <| SetEmulatorRun (not run) ][ text <| if run then "stop" else "start"] ]
+                , li []
+                    [ select [ ]
+                        [ option [][text "tetris"]
+                        , option [][text "pong"]
+                        ]
+                    ]
+                ]
+            ]
+            , div [ class "emulator" ]
+            [ div [ class "screen" ]
+                [ render screen ]
+            , div [ class "inputs" ]
+                [ button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 1)
+                    , E.onMouseUp (InputReleased 1) 
+                    ]
+                    [text "1"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 2)
+                    , E.onMouseUp (InputReleased 2) 
+                    ]
+                    [text "2"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 3)
+                    , E.onMouseUp (InputReleased 3) 
+                    ]
+                    [text "3"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 10)
+                    , E.onMouseUp (InputReleased 10) 
+                    ]
+                    [text "A"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 4)
+                    , E.onMouseUp (InputReleased 4) 
+                    ]
+                    [text "4"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 5)
+                    , E.onMouseUp (InputReleased 5) 
+                    ]
+                    [text "5"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 6)
+                    , E.onMouseUp (InputReleased 6) 
+                    ]
+                    [text "6"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 11)
+                    , E.onMouseUp (InputReleased 11) 
+                    ]
+                    [text "B"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 7)
+                    , E.onMouseUp (InputReleased 7) 
+                    ]
+                    [text "7"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 8)
+                    , E.onMouseUp (InputReleased 8) 
+                    ]
+                    [text "8"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 9)
+                    , E.onMouseUp (InputReleased 9) 
+                    ]
+                    [text "9"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 12)
+                    , E.onMouseUp (InputReleased 12) 
+                    ]
+                    [text "C"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 13)
+                    , E.onMouseUp (InputReleased 13) 
+                    ]
+                    [text "D"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 0)
+                    , E.onMouseUp (InputReleased 0) 
+                    ]
+                    [text "0"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 14)
+                    , E.onMouseUp (InputReleased 14) 
+                    ]
+                    [text "E"]
+                , button 
+                    [ class "secondary"
+                    , E.onMouseDown (InputPressed 15)
+                    , E.onMouseUp (InputReleased 15) 
+                    ]
+                    [text "F"]
+                ]
+            ]
         ]
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
+subscriptions model =
     Sub.batch
     [ Time.every (1000 / 60) (\_ -> UpdateScreen)
-    , Time.every (1000 / 400) (\_ -> ChipMsg Continue)
-    , Browser.Events.onKeyDown (keyEvent KeyPressed)
-    , Browser.Events.onKeyUp (keyEvent KeyReleased)
+    , if model.run then Time.every (1000 / 400) (\_ -> ChipMsg Continue) else Sub.none
+    , Browser.Events.onKeyDown (keyEvent keyPressed)
+    , Browser.Events.onKeyUp (keyEvent keyReleased)
     ]
 
 
@@ -122,6 +256,24 @@ toKey msg string =
 keyEvent : (Char -> Msg) -> Decode.Decoder Msg
 keyEvent msg =
     Decode.map (toKey msg) (Decode.field "key" Decode.string)
+
+
+keyPressed : Char -> Msg
+keyPressed c =
+    case Dict.get c keyMap of
+    Just i ->
+        InputPressed i
+    Nothing ->
+        Noop
+
+
+keyReleased : Char -> Msg
+keyReleased c =
+    case Dict.get c keyMap of
+    Just i ->
+        InputReleased i
+    Nothing ->
+        Noop
 
 
 keyMap : Dict.Dict Char Int
@@ -146,27 +298,20 @@ keyMap =
     ]
 
 
-handleKeyDown : Cpu -> Char -> Cpu
-handleKeyDown cpuIn c =
-    case Dict.get c keyMap of
-    Just i ->
-        { cpuIn
-        | keys = Array.set i True cpuIn.keys
-        , wait = False
-        }
-    _ ->
-        cpuIn
+handleInputDown : Cpu -> Int -> Cpu
+handleInputDown cpuIn c =
+    { cpuIn
+    | keys = Array.set c True cpuIn.keys
+    , wait = False
+    }
 
 
-handleKeyUp : Cpu -> Char -> Cpu
-handleKeyUp cpuIn c =
-    case Dict.get c keyMap of
-    Just i ->
-        { cpuIn
-        | keys = Array.set i False cpuIn.keys
-        }
-    _ ->
-        cpuIn
+
+handleInputUp : Cpu -> Int -> Cpu
+handleInputUp cpuIn c =
+    { cpuIn
+    | keys = Array.set c False cpuIn.keys
+    }
 
 ---- PROGRAM ----
 

@@ -1,14 +1,4 @@
-module Chip8 exposing 
-  ( Cpu
-  , Byte
-  , ChipMsg(..)
-  , defaultCpu
-  , doNextOp
-  , loadIntoMemory
-  , emptyBuffer
-  , updateTimers
-  , insertRnd, endWait
-  )
+module Chip8 exposing (..)
 import Array exposing (Array)
 import Bitwise exposing (shiftLeftBy, shiftRightBy, or, and)
 
@@ -73,6 +63,10 @@ emptyRegisters =
   List.repeat 0x010 0 |> Array.fromList
 
 
+emptyKeys : Array Bool
+emptyKeys =
+  List.repeat 16 False |> Array.fromList
+
 hexSprites : List Byte
 hexSprites =
   [ 0xF0, 0x90, 0x90, 0x90, 0xF0
@@ -103,7 +97,7 @@ defaultCpu =
   , stack = []
   , timerDelay = 0
   , timerSound = 0
-  , keys = List.repeat 16 False |> Array.fromList
+  , keys = emptyKeys
   , wait = False
   , waitRegister = 0
   , rnd = { vx = 0, kk = 0xF }
@@ -609,13 +603,16 @@ op_8XY5 opcode cpu =
     vy =
       getRegValue cpu ( get00Y0 opcode )
 
-    (value, overflow) =
+    (value, _) =
       sub8 vx vy
+    
+    overflow =
+      if vx > vy then 1 else 0
 
     registers =
       cpu.registers
       |> Array.set ( get0X00 opcode ) value
-      |> Array.set 0xF ( Bitwise.complement overflow)
+      |> Array.set 0xF ( overflow )
 
   in
   { cpu | registers = registers }
@@ -654,13 +651,16 @@ op_8XY7 opcode cpu =
     vy =
       getRegValue cpu ( get00Y0 opcode )
 
-    (value, overflow) =
+    (value, _) =
       sub8 vy vx
+
+    overflow =
+      if vy > vx then 1 else 0
 
     registers =
       cpu.registers
       |> Array.set ( get0X00 opcode ) value
-      |> Array.set 0xF ( Bitwise.complement overflow)
+      |> Array.set 0xF overflow 
 
   in
   { cpu | registers = registers }
@@ -880,7 +880,7 @@ op_FX0A : Word -> Cpu -> Cpu
 op_FX0A opcode cpu =
   { cpu
   | wait = True
-  , waitRegister = getRegValue cpu ( get0X00 opcode ) 
+  , waitRegister = get0X00 opcode
   }
 
 endWait : Byte -> Cpu -> Cpu
@@ -955,15 +955,15 @@ op_FX33 opcode cpu =
     ones =
       Basics.modBy 10 value
 
-    registers =
-      cpu.registers
+    memory =
+      cpu.memory
       |> Array.set cpu.i hundreds
       |> Array.set (cpu.i + 1) tens
       |> Array.set (cpu.i + 2) ones
 
   in
   {cpu
-  | registers = registers
+  | memory = memory
   }
 
 
@@ -974,7 +974,7 @@ op_FX55 : Word -> Cpu -> Cpu
 op_FX55 opcode cpu =
   cpu.registers
   |> Array.toList
-  |> List.take (get0X00 opcode)
+  |> List.take ((get0X00 opcode) + 1)
   |> loadIntoMemory cpu cpu.i
 
 
@@ -984,6 +984,7 @@ op_FX55 opcode cpu =
 op_FX65 : Word -> Cpu -> Cpu
 op_FX65 opcode cpu =
   get0X00 opcode
+  |> (+) 1
   |> List.range 0
   |> List.foldl (\off regIn -> 
     Array.get (cpu.i + off) cpu.memory

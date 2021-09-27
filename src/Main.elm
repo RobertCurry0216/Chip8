@@ -32,7 +32,10 @@ import Chip8 exposing
     , emptyBuffer
     , updateTimers
     , doNextOp
+    , insertRnd
+    , endWait
     )
+import Random
 
 
 ---- MODEL ----
@@ -41,7 +44,6 @@ import Chip8 exposing
 type alias Model =
     { cpu : Cpu
     , screen : Array Byte
-    , currentOp : String
     , run : Bool
     }
 
@@ -50,7 +52,6 @@ init : ( Model, Cmd Msg )
 init =
     ( { cpu = loadIntoMemory defaultCpu 0x200 tetrisRom
       , screen = emptyBuffer
-      , currentOp = "init"
       , run = False
       }
     , Cmd.none
@@ -62,11 +63,11 @@ init =
 
 type Msg
     = UpdateScreen
-    | ChipMsg ChipMsg
+    | Tick
     | InputPressed Int
     | InputReleased Int
     | SetEmulatorRun Bool
-    | FetchRandom
+    | SetRandom Int
     | Noop
 
 
@@ -78,29 +79,48 @@ update msg model =
           | screen = model.cpu.screenBuffer
           , cpu = updateTimers model.cpu
           }, Cmd.none )
-    ChipMsg _ ->
+
+    Tick ->
         doNextOp model.cpu
-        |> (\(opString, cpu, chipMsg) ->
-            ( { model
-                | screen = cpu.screenBuffer
-                , cpu = updateTimers cpu
-                , currentOp = opString
-                }, Cmd.none )
+        |> (\(cpu, chipMsg) ->
+            let
+                newModel =
+                   { model
+                    | screen = cpu.screenBuffer
+                    , cpu = updateTimers cpu
+                    } 
+            in
+            case chipMsg of
+            InsertRandomInt a b -> 
+                ( newModel, Random.generate SetRandom (Random.int a b) )
+            Stop ->
+                update ( SetEmulatorRun False ) newModel
+            _ -> 
+                ( newModel, Cmd.none )
         )
-    InputPressed c -> -- TODO: add keypress wait
+
+    SetRandom rnd ->
+        ( { model | cpu = insertRnd rnd model.cpu }
+        , Cmd.none
+        )
+
+    InputPressed c ->
         (   { model 
             | cpu = handleInputDown model.cpu c
             }
         ,   Cmd.none
         )
+
     InputReleased c ->
         (   { model 
             | cpu = handleInputUp model.cpu c
             }
         ,   Cmd.none
         )
+
     SetEmulatorRun b ->
         ( {model | run = b}, Cmd.none)
+
     _ ->
         (model, Cmd.none)
 
@@ -235,8 +255,8 @@ view { screen, run } =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-    [ Time.every (1000 / 60) (\_ -> UpdateScreen)
-    , if model.run then Time.every (1000 / 400) (\_ -> ChipMsg Continue) else Sub.none
+    [ if model.run then Time.every (1000 / 60) (\_ -> UpdateScreen) else Sub.none
+    , if model.run then Time.every (1000 / 400) (\_ -> Tick) else Sub.none
     , Browser.Events.onKeyDown (keyEvent keyPressed)
     , Browser.Events.onKeyUp (keyEvent keyReleased)
     ]
@@ -302,8 +322,8 @@ handleInputDown : Cpu -> Int -> Cpu
 handleInputDown cpuIn c =
     { cpuIn
     | keys = Array.set c True cpuIn.keys
-    , wait = False
     }
+    |> endWait c
 
 
 

@@ -7,15 +7,15 @@ module Chip8 exposing
   , loadIntoMemory
   , emptyBuffer
   , updateTimers
+  , insertRnd, endWait
   )
 import Array exposing (Array)
 import Bitwise exposing (shiftLeftBy, shiftRightBy, or, and)
-import Debugging exposing (intToHex)
-
 
 type ChipMsg
   = Continue
-  | InsertRandomInt
+  | Stop
+  | InsertRandomInt Int Int
 
 
 --This might have to be replaced with an actual byte
@@ -24,6 +24,12 @@ type alias Byte = Int
 
 --2 Bytes, might have to replaced with something else
 type alias Word = Int
+
+
+type alias RndStore =
+  { vx : Byte
+  , kk : Byte
+  }
 
 
 type alias Cpu =
@@ -44,6 +50,9 @@ type alias Cpu =
   , keys : Array Bool
   , wait : Bool
   , waitRegister : Byte
+
+  -- random numbers
+  , rnd : RndStore
   }
 
 
@@ -97,6 +106,7 @@ defaultCpu =
   , keys = List.repeat 16 False |> Array.fromList
   , wait = False
   , waitRegister = 0
+  , rnd = { vx = 0, kk = 0xF }
   }
 
 
@@ -213,147 +223,108 @@ getNextOpcode cpu =
       Err "Error getting Op Code"
 
 
-doOp : Word -> Cpu -> (String, Cpu, ChipMsg)
+doOp : Word -> Cpu -> (Cpu, ChipMsg)
 doOp opcode =
   case and 0xF000 opcode of
     0x0000 ->
       case opcode of
       0x00E0 -> 
-        op_00E0 opcode 
-        >> \cpu -> (("op_00E0: " ++ (intToHex opcode)), cpu, Continue)
+        op_00E0 opcode >> \cpu -> (cpu, Continue)
       0x00EE -> 
-        op_00EE opcode 
-        >> \cpu -> (("op_00EE: " ++ (intToHex opcode)), cpu, Continue)
+        op_00EE opcode >> \cpu -> (cpu, Continue)
       _ -> 
-        op_0NNN opcode 
-        >> \cpu -> (("op_0NNN: " ++ (intToHex opcode)), cpu, Continue)
+        op_0NNN opcode >> \cpu -> (cpu, Continue)
     0x1000 -> 
-      op_1NNN opcode 
-      >> \cpu -> (("op_1NNN: " ++ (intToHex opcode)), cpu, Continue)
+      op_1NNN opcode >> \cpu -> (cpu, Continue)
     0x2000 -> 
-      op_2NNN opcode 
-      >> \cpu -> (("op_2NNN: " ++ (intToHex opcode)), cpu, Continue)
+      op_2NNN opcode >> \cpu -> (cpu, Continue)
     0x3000 -> 
-      op_3XKK opcode 
-      >> \cpu -> (("op_3XKK: " ++ (intToHex opcode)), cpu, Continue)
+      op_3XKK opcode >> \cpu -> (cpu, Continue)
     0x4000 -> 
-      op_4XKK opcode 
-      >> \cpu -> (("op_4XKK: " ++ (intToHex opcode)), cpu, Continue)
+      op_4XKK opcode >> \cpu -> (cpu, Continue)
     0x5000 -> 
-      op_5XY0 opcode 
-      >> \cpu -> (("op_5XY0: " ++ (intToHex opcode)), cpu, Continue)
+      op_5XY0 opcode >> \cpu -> (cpu, Continue)
     0x6000 -> 
-      op_6XKK opcode 
-      >> \cpu -> (("op_6XKK: " ++ (intToHex opcode)), cpu, Continue)
+      op_6XKK opcode >> \cpu -> (cpu, Continue)
     0x7000 -> 
-      op_7XKK opcode 
-      >> \cpu -> (("op_7XKK: " ++ (intToHex opcode)), cpu, Continue)
+      op_7XKK opcode >> \cpu -> (cpu, Continue)
     0x8000 ->
       case and 0xF opcode of
       0x0 -> 
-        op_8XY0 opcode 
-        >> \cpu -> (("op_8XY0: " ++ (intToHex opcode)), cpu, Continue)
+        op_8XY0 opcode >> \cpu -> (cpu, Continue)
       0x1 -> 
-        op_8XY1 opcode 
-        >> \cpu -> (("op_8XY1: " ++ (intToHex opcode)), cpu, Continue)
+        op_8XY1 opcode >> \cpu -> (cpu, Continue)
       0x2 -> 
-        op_8XY2 opcode 
-        >> \cpu -> (("op_8XY2: " ++ (intToHex opcode)), cpu, Continue)
+        op_8XY2 opcode >> \cpu -> (cpu, Continue)
       0x3 -> 
-        op_8XY3 opcode 
-        >> \cpu -> (("op_8XY3: " ++ (intToHex opcode)), cpu, Continue)
+        op_8XY3 opcode >> \cpu -> (cpu, Continue)
       0x4 -> 
-        op_8XY4 opcode 
-        >> \cpu -> (("op_8XY4: " ++ (intToHex opcode)), cpu, Continue)
+        op_8XY4 opcode >> \cpu -> (cpu, Continue)
       0x5 -> 
-        op_8XY5 opcode 
-        >> \cpu -> (("op_8XY5: " ++ (intToHex opcode)), cpu, Continue)
+        op_8XY5 opcode >> \cpu -> (cpu, Continue)
       0x6 -> 
-        op_8XY6 opcode 
-        >> \cpu -> (("op_8XY6: " ++ (intToHex opcode)), cpu, Continue)
+        op_8XY6 opcode >> \cpu -> (cpu, Continue)
       0x7 -> 
-        op_8XY7 opcode 
-        >> \cpu -> (("op_8XY7: " ++ (intToHex opcode)), cpu, Continue)
+        op_8XY7 opcode >> \cpu -> (cpu, Continue)
       0xE -> 
-        op_8XYE opcode 
-        >> \cpu -> (("op_8XYE: " ++ (intToHex opcode)), cpu, Continue)
+        op_8XYE opcode >> \cpu -> (cpu, Continue)
       _ -> 
-        noop opcode 
-        >> \cpu -> (("noop: " ++ (intToHex opcode)), cpu, Continue)
+        noop opcode >> \cpu -> (cpu, Stop)
     0x9000 -> 
-      op_9XY0 opcode 
-      >> \cpu -> (("op_9XY0: " ++ (intToHex opcode)), cpu, Continue)
+      op_9XY0 opcode >> \cpu -> (cpu, Continue)
     0xA000 -> 
-      op_ANNN opcode 
-      >> \cpu -> (("op_ANNN: " ++ (intToHex opcode)), cpu, Continue)
+      op_ANNN opcode >> \cpu -> (cpu, Continue)
     0xB000 -> 
-      op_BNNN opcode 
-      >> \cpu -> (("op_BNNN: " ++ (intToHex opcode)), cpu, Continue)
+      op_BNNN opcode >> \cpu -> (cpu, Continue)
     0xC000 -> 
-      op_CXKK opcode 
-      >> \cpu -> (("op_CXKK: " ++ (intToHex opcode)), cpu, Continue)
+      op_CXKK opcode >> \cpu -> (cpu, InsertRandomInt 0 255)
     0xD000 -> 
-      op_DXYN opcode 
-      >> \cpu -> (("op_DXYN: " ++ (intToHex opcode)), cpu, Continue)
+      op_DXYN opcode >> \cpu -> (cpu, Continue)
     0xE000 ->
       case and 0xFF opcode of
       0x9E -> 
-        op_EX9E opcode 
-        >> \cpu -> (("op_EX9E: " ++ (intToHex opcode)), cpu, Continue)
+        op_EX9E opcode >> \cpu -> (cpu, Continue)
       0xA1 -> 
-        op_EXA1 opcode 
-        >> \cpu -> (("op_EXA1: " ++ (intToHex opcode)), cpu, Continue)
+        op_EXA1 opcode >> \cpu -> (cpu, Continue)
       _ -> 
-        noop opcode 
-        >> \cpu -> (("noop: " ++ (intToHex opcode)), cpu, Continue)
+        noop opcode >> \cpu -> (cpu, Stop)
     0xF000 ->
       case and 0xFF opcode of
       0x07 -> 
-        op_FX07 opcode 
-        >> \cpu -> (("op_FX07: " ++ (intToHex opcode)), cpu, Continue)
+        op_FX07 opcode >> \cpu -> (cpu, Continue)
       0x0A -> 
-        op_FX0A opcode 
-        >> \cpu -> (("op_FX0A: " ++ (intToHex opcode)), cpu, Continue)
+        op_FX0A opcode >> \cpu -> (cpu, Continue)
       0x15 -> 
-        op_FX15 opcode 
-        >> \cpu -> (("op_FX15: " ++ (intToHex opcode)), cpu, Continue)
+        op_FX15 opcode >> \cpu -> (cpu, Continue)
       0x18 -> 
-        op_FX18 opcode 
-        >> \cpu -> (("op_FX18: " ++ (intToHex opcode)), cpu, Continue)
+        op_FX18 opcode >> \cpu -> (cpu, Continue)
       0x1E -> 
-        op_FX1E opcode 
-        >> \cpu -> (("op_FX1E: " ++ (intToHex opcode)), cpu, Continue)
+        op_FX1E opcode >> \cpu -> (cpu, Continue)
       0x29 -> 
-        op_FX29 opcode 
-        >> \cpu -> (("op_FX29: " ++ (intToHex opcode)), cpu, Continue)
+        op_FX29 opcode >> \cpu -> (cpu, Continue)
       0x33 -> 
-        op_FX33 opcode 
-        >> \cpu -> (("op_FX33: " ++ (intToHex opcode)), cpu, Continue)
+        op_FX33 opcode >> \cpu -> (cpu, Continue)
       0x55 -> 
-        op_FX55 opcode 
-        >> \cpu -> (("op_FX55: " ++ (intToHex opcode)), cpu, Continue)
+        op_FX55 opcode >> \cpu -> (cpu, Continue)
       0x65 -> 
-        op_FX65 opcode 
-        >> \cpu -> (("op_FX65: " ++ (intToHex opcode)), cpu, Continue)
+        op_FX65 opcode >> \cpu -> (cpu, Continue)
       _ -> 
-        noop opcode 
-        >> \cpu -> (("noop: " ++ (intToHex opcode)), cpu, Continue)
+        noop opcode >> \cpu -> (cpu, Stop)
     _ -> 
-      noop opcode 
-      >> \cpu -> (("noop: " ++ (intToHex opcode)), cpu, Continue)
+      noop opcode >> \cpu -> (cpu, Stop)
 
 ---- Cpu Helpers ----
 
-doNextOp : Cpu -> (String, Cpu, ChipMsg)
+doNextOp : Cpu -> (Cpu, ChipMsg)
 doNextOp cpuIn =
   if cpuIn.wait then
-    ("wait", cpuIn, Continue)
+    (cpuIn, Continue)
   else
     case getNextOpcode cpuIn of
     Ok (opcode, cpu) ->
       doOp opcode cpu
     Err _ ->
-      ("Error", noop 0x0000 cpuIn, Continue)
+      (noop 0x0000 cpuIn, Stop)
 
 
 updateTimers : Cpu -> Cpu
@@ -763,22 +734,26 @@ op_BNNN opcode cpu =
 -- Cxkk - RND Vx, byte
 -- Set Vx = random byte AND kk.
 -- The interpreter generates a random number from 0 to 255, which is then ANDed with the value kk. The results are stored in Vx. See instruction 8xy2 for more information on AND.
-op_CXKK : Word -> Cpu -> Cpu
-op_CXKK opcode cpu =
-  -- TODO: random numbers
+insertRnd : Byte -> Cpu -> Cpu
+insertRnd rnd cpu =
   let
-    rand =
-      1
-
-    vx =
-      get0X00 opcode
-      |> getRegValue cpu
-
-    kk =
-      get00KK opcode   
+    registers =
+      cpu.registers
+      |> Array.set cpu.rnd.vx (and cpu.rnd.kk rnd)
   in
-  cpu
+  { cpu
+  | registers = registers
+  }
 
+
+op_CXKK : Word -> Cpu -> Cpu
+op_CXKK opcode cpuIn =
+  { cpuIn
+  | rnd = 
+    { vx = get0X00 opcode |> getRegValue cpuIn
+    , kk = get00KK opcode
+    }
+  }
 
 -- Dxyn - DRW Vx, Vy, nibble
 -- Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
@@ -903,14 +878,17 @@ op_FX07 opcode cpu =
 -- All execution stops until a key is pressed, then the value of that key is stored in Vx.
 op_FX0A : Word -> Cpu -> Cpu
 op_FX0A opcode cpu =
-  Debug.log "wait"
   { cpu
   | wait = True
   , waitRegister = getRegValue cpu ( get0X00 opcode ) 
   }
 
-endWait =
-  Debug.todo "end Wait"
+endWait : Byte -> Cpu -> Cpu
+endWait key cpu =
+  { cpu
+  | wait = False
+  , registers = Array.set cpu.waitRegister key cpu.registers
+  }
 
 
 -- Fx15 - LD DT, Vx

@@ -36,6 +36,7 @@ import Chip8 exposing
     , endWait
     )
 import Random
+import Html.Attributes exposing (selected)
 
 
 ---- MODEL ----
@@ -50,7 +51,7 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { cpu = loadIntoMemory defaultCpu 0x200 tetrisRom
+    ( { cpu = loadIntoMemory defaultCpu 0x200 pictureRom
       , screen = emptyBuffer
       , run = False
       }
@@ -68,6 +69,7 @@ type Msg
     | InputReleased Int
     | SetEmulatorRun Bool
     | SetRandom Int
+    | LoadRom String
     | Noop
 
 
@@ -140,10 +142,14 @@ view { screen, run } =
             , ul []
                 [ li [][ button [ class "outline", E.onClick <| SetEmulatorRun (not run) ][ text <| if run then "stop" else "start"] ]
                 , li []
-                    [ select [ ]
-                        [ option [][text "tetris"]
-                        , option [][text "pong"]
-                        ]
+                    [ select [ E.onInput LoadRom ]
+                        (
+                            Dict.keys roms
+                            |> List.map
+                                (\k ->
+                                    option [][ text k ]
+                                )
+                        )
                     ]
                 ]
             ]
@@ -151,103 +157,22 @@ view { screen, run } =
             [ div [ class "screen" ]
                 [ render screen ]
             , div [ class "inputs" ]
-                [ button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 1)
-                    , E.onMouseUp (InputReleased 1) 
+                (
+                    [(1, "1"),(2, "2"),(3, "3"),(0xA, "A")
+                    ,(4, "4"),(5, "5"),(6, "6"),(0xB, "B")
+                    ,(7, "7"),(8, "8"),(9, "9"),(0xC, "C")
+                    ,(0xD, "D"),(0, "0"),(0xE, "E"),(0xF, "F")
                     ]
-                    [text "1"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 2)
-                    , E.onMouseUp (InputReleased 2) 
-                    ]
-                    [text "2"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 3)
-                    , E.onMouseUp (InputReleased 3) 
-                    ]
-                    [text "3"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 10)
-                    , E.onMouseUp (InputReleased 10) 
-                    ]
-                    [text "A"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 4)
-                    , E.onMouseUp (InputReleased 4) 
-                    ]
-                    [text "4"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 5)
-                    , E.onMouseUp (InputReleased 5) 
-                    ]
-                    [text "5"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 6)
-                    , E.onMouseUp (InputReleased 6) 
-                    ]
-                    [text "6"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 11)
-                    , E.onMouseUp (InputReleased 11) 
-                    ]
-                    [text "B"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 7)
-                    , E.onMouseUp (InputReleased 7) 
-                    ]
-                    [text "7"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 8)
-                    , E.onMouseUp (InputReleased 8) 
-                    ]
-                    [text "8"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 9)
-                    , E.onMouseUp (InputReleased 9) 
-                    ]
-                    [text "9"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 12)
-                    , E.onMouseUp (InputReleased 12) 
-                    ]
-                    [text "C"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 13)
-                    , E.onMouseUp (InputReleased 13) 
-                    ]
-                    [text "D"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 0)
-                    , E.onMouseUp (InputReleased 0) 
-                    ]
-                    [text "0"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 14)
-                    , E.onMouseUp (InputReleased 14) 
-                    ]
-                    [text "E"]
-                , button 
-                    [ class "secondary"
-                    , E.onMouseDown (InputPressed 15)
-                    , E.onMouseUp (InputReleased 15) 
-                    ]
-                    [text "F"]
-                ]
+                    |> List.map
+                        (\(v, t) ->
+                            button 
+                                [ class "secondary"
+                                , E.onMouseDown (InputPressed v)
+                                , E.onMouseUp (InputReleased v) 
+                                ]
+                                [text t]
+                        )
+                )
             ]
         ]
 
@@ -344,6 +269,15 @@ main =
         , update = update
         , subscriptions = subscriptions
         }
+
+
+
+roms : Dict.Dict String (List Int)
+roms =
+    Dict.fromList
+    [ ( "tetris", tetrisRom )
+    , ( "pong", pongRom )
+    ]
 
 
 ---- Chip 8 helpers ----

@@ -430,6 +430,28 @@ opcodes =
             |> Expect.equal 0xA
         )
 
+    , describe "op_CXKK: Set Vx = random byte AND kk"
+        [ test "save vx and kk"
+            (\_ ->
+                op_CXKK 0xC1F0 defaultCpu
+                |> .rnd
+                |> Expect.equal { vx=0x1, kk=0xF0 }
+            )
+        , test "insert rnd"
+            (\_ ->
+                let
+                    cpu =
+                        { defaultCpu
+                        | rnd = { vx=0x1, kk=0xF0 }
+                        }
+                in
+                insertRnd 0xAB cpu
+                |> .registers
+                |> Array.get 0x1
+                |> Expect.equal ( Just 0xA0 )
+            )
+        ]
+
     , describe "op_EX9E: skip if key(Vx) is pressed"
         [ test "pressed"
             (\_ ->

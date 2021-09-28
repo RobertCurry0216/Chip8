@@ -750,7 +750,7 @@ op_CXKK : Word -> Cpu -> Cpu
 op_CXKK opcode cpuIn =
   { cpuIn
   | rnd = 
-    { vx = get0X00 opcode |> getRegValue cpuIn
+    { vx = get0X00 opcode
     , kk = get00KK opcode
     }
   }
@@ -880,15 +880,18 @@ op_FX0A : Word -> Cpu -> Cpu
 op_FX0A opcode cpu =
   { cpu
   | wait = True
-  , waitRegister = get0X00 opcode
+  , waitRegister = get0X00 opcode |> Debug.log "Fx0A - LD Vx, K"
   }
 
 endWait : Byte -> Cpu -> Cpu
 endWait key cpu =
-  { cpu
-  | wait = False
-  , registers = Array.set cpu.waitRegister key cpu.registers
-  }
+  if cpu.wait then
+    { cpu
+    | wait = False
+    , registers = Array.set cpu.waitRegister key cpu.registers
+    }
+  else 
+    cpu
 
 
 -- Fx15 - LD DT, Vx

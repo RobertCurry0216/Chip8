@@ -26,7 +26,6 @@ import Dict
 import Chip8 exposing 
     ( Cpu
     , Byte
-    , ChipMsg(..)
     , loadIntoMemory
     , defaultCpu
     , emptyBuffer
@@ -36,6 +35,7 @@ import Chip8 exposing
     , endWait
     )
 import Random
+import Msg exposing ( Msg(..) )
 import Html.Attributes exposing (selected)
 
 
@@ -51,9 +51,15 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( { cpu = loadIntoMemory defaultCpu 0x200 pictureRom
+    let
+        rom = 
+            Dict.get "welcome" roms
+            |> Maybe.withDefault []
+    in
+    
+    ( { cpu = loadIntoMemory defaultCpu 0x200 rom
       , screen = emptyBuffer
-      , run = False
+      , run = True
       }
     , Cmd.none
     )
@@ -62,20 +68,12 @@ init =
 ---- UPDATE ----
 
 
-type Msg
-    = UpdateScreen
-    | Tick
-    | InputPressed Int
-    | InputReleased Int
-    | SetEmulatorRun Bool
-    | SetRandom Int
-    | LoadRom String
-    | Noop
-
-
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+    
+    -- emulator handlers
+
     UpdateScreen ->
         ( { model
           | screen = model.cpu.screenBuffer
@@ -84,27 +82,44 @@ update msg model =
 
     Tick ->
         doNextOp model.cpu
-        |> (\(cpu, chipMsg) ->
-            let
-                newModel =
-                   { model
-                    | screen = cpu.screenBuffer
-                    , cpu = updateTimers cpu
-                    } 
-            in
-            case chipMsg of
-            InsertRandomInt a b -> 
-                ( newModel, Random.generate SetRandom (Random.int a b) )
-            Stop ->
-                update ( SetEmulatorRun False ) newModel
-            _ -> 
-                ( newModel, Cmd.none )
+        |> \(cpu, chipMsg) ->
+                update chipMsg { model | cpu = cpu }
+
+    SetEmulatorRun b ->
+        ( {model | run = b}
+        , Cmd.none
         )
 
+    LoadRom name ->
+        case Dict.get name roms of
+            Just rom ->
+                ( { cpu = loadIntoMemory defaultCpu 0x200 rom
+                , screen = emptyBuffer
+                , run = False
+                }
+                , Cmd.none
+                )
+            Nothing ->
+                update ( SetEmulatorRun False) model
+
+    -- emulator op runners
+
+    Continue ->
+        ( model
+        , Cmd.none 
+        )
+
+    FetchRandom a b ->
+        ( model
+        , Random.generate SetRandom (Random.int a b)
+        )
+    
     SetRandom rnd ->
         ( { model | cpu = insertRnd rnd model.cpu }
         , Cmd.none
         )
+
+    -- input handlers
 
     InputPressed c ->
         (   { model 
@@ -120,9 +135,6 @@ update msg model =
         ,   Cmd.none
         )
 
-    SetEmulatorRun b ->
-        ( {model | run = b}, Cmd.none)
-
     _ ->
         (model, Cmd.none)
 
@@ -134,6 +146,7 @@ update msg model =
 view : Model -> Html Msg
 view { screen, run } =
     main_ [ class "container" ]
+        -- nav bar
         [ nav []
             [ ul []
                 [ li []
@@ -147,15 +160,19 @@ view { screen, run } =
                             Dict.keys roms
                             |> List.map
                                 (\k ->
-                                    option [][ text k ]
+                                    option [ selected ( k == "welcome") ][ text k ]
                                 )
                         )
                     ]
                 ]
             ]
+
+            -- emulator
             , div [ class "emulator" ]
             [ div [ class "screen" ]
                 [ render screen ]
+
+            -- inputs
             , div [ class "inputs" ]
                 (
                     [(1, "1"),(2, "2"),(3, "3"),(0xA, "A")
@@ -168,7 +185,7 @@ view { screen, run } =
                             button 
                                 [ class "secondary"
                                 , E.onMouseDown (InputPressed v)
-                                , E.onMouseUp (InputReleased v) 
+                                , E.onMouseUp (InputReleased v)
                                 ]
                                 [text t]
                         )
@@ -270,14 +287,6 @@ main =
         , subscriptions = subscriptions
         }
 
-
-
-roms : Dict.Dict String (List Int)
-roms =
-    Dict.fromList
-    [ ( "tetris", tetrisRom )
-    , ( "pong", pongRom )
-    ]
 
 
 ---- Chip 8 helpers ----

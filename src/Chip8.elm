@@ -1,11 +1,7 @@
 module Chip8 exposing (..)
 import Array exposing (Array)
 import Bitwise exposing (shiftLeftBy, shiftRightBy, or, and)
-
-type ChipMsg
-  = Continue
-  | Stop
-  | InsertRandomInt Int Int
+import Msg exposing ( Msg(..) )
 
 
 --This might have to be replaced with an actual byte
@@ -217,7 +213,7 @@ getNextOpcode cpu =
       Err "Error getting Op Code"
 
 
-doOp : Word -> Cpu -> (Cpu, ChipMsg)
+doOp : Word -> Cpu -> (Cpu, Msg)
 doOp opcode =
   case and 0xF000 opcode of
     0x0000 ->
@@ -263,7 +259,7 @@ doOp opcode =
       0xE -> 
         op_8XYE opcode >> \cpu -> (cpu, Continue)
       _ -> 
-        noop opcode >> \cpu -> (cpu, Stop)
+        noop opcode >> \cpu -> (cpu, SetEmulatorRun False)
     0x9000 -> 
       op_9XY0 opcode >> \cpu -> (cpu, Continue)
     0xA000 -> 
@@ -271,7 +267,7 @@ doOp opcode =
     0xB000 -> 
       op_BNNN opcode >> \cpu -> (cpu, Continue)
     0xC000 -> 
-      op_CXKK opcode >> \cpu -> (cpu, InsertRandomInt 0 255)
+      op_CXKK opcode >> \cpu -> (cpu, FetchRandom 0 255)
     0xD000 -> 
       op_DXYN opcode >> \cpu -> (cpu, Continue)
     0xE000 ->
@@ -281,7 +277,7 @@ doOp opcode =
       0xA1 -> 
         op_EXA1 opcode >> \cpu -> (cpu, Continue)
       _ -> 
-        noop opcode >> \cpu -> (cpu, Stop)
+        noop opcode >> \cpu -> (cpu, SetEmulatorRun False)
     0xF000 ->
       case and 0xFF opcode of
       0x07 -> 
@@ -303,13 +299,13 @@ doOp opcode =
       0x65 -> 
         op_FX65 opcode >> \cpu -> (cpu, Continue)
       _ -> 
-        noop opcode >> \cpu -> (cpu, Stop)
+        noop opcode >> \cpu -> (cpu, SetEmulatorRun False)
     _ -> 
-      noop opcode >> \cpu -> (cpu, Stop)
+      noop opcode >> \cpu -> (cpu, SetEmulatorRun False)
 
 ---- Cpu Helpers ----
 
-doNextOp : Cpu -> (Cpu, ChipMsg)
+doNextOp : Cpu -> (Cpu, Msg)
 doNextOp cpuIn =
   if cpuIn.wait then
     (cpuIn, Continue)
@@ -318,7 +314,7 @@ doNextOp cpuIn =
     Ok (opcode, cpu) ->
       doOp opcode cpu
     Err _ ->
-      (noop 0x0000 cpuIn, Stop)
+      (noop 0x0000 cpuIn, SetEmulatorRun False)
 
 
 updateTimers : Cpu -> Cpu
@@ -875,7 +871,7 @@ op_FX07 opcode cpu =
 
 -- Fx0A - LD Vx, K
 -- Wait for a key press, store the value of the key in Vx.
--- All execution stops until a key is pressed, then the value of that key is stored in Vx.
+-- All execution SetEmulatorRun Falses until a key is pressed, then the value of that key is stored in Vx.
 op_FX0A : Word -> Cpu -> Cpu
 op_FX0A opcode cpu =
   { cpu

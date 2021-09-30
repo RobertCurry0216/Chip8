@@ -278,13 +278,13 @@ opcodes =
             )
         ]
 
-    , describe "op_8XY6: Set Vx = Vx SHR 1"
+    , describe "op_8XY6: Set Vx = Vy SHR 1"
         [ test "even"
             (\_ ->
                 let
                     cpu =   { defaultCpu 
                             | registers = 
-                                Array.set 0 0x4 emptyRegisters
+                                Array.set 1 0x4 emptyRegisters
                             }
                 in
                 op_8XY6 0x8016 cpu
@@ -299,7 +299,7 @@ opcodes =
                 let
                     cpu =   { defaultCpu 
                             | registers = 
-                                Array.set 0 0x5 emptyRegisters
+                                Array.set 1 0x5 emptyRegisters
                             }
                 in
                 op_8XY6 0x8016 cpu
@@ -351,7 +351,7 @@ opcodes =
                 let
                     cpu =   { defaultCpu 
                             | registers = 
-                                Array.set 0 0x4 emptyRegisters
+                                Array.set 1 0x4 emptyRegisters
                             }
                 in
                 op_8XYE 0x801E cpu
@@ -367,7 +367,7 @@ opcodes =
                     cpu =   { defaultCpu 
                             | registers = 
                                 -- 0x81 = 0b10000001
-                                Array.set 0 0x81 emptyRegisters
+                                Array.set 1 0x81 emptyRegisters
                             }
                 in
                 op_8XYE 0x801E cpu
@@ -572,6 +572,18 @@ opcodes =
             |> Expect.equal 0xAAA
         )
 
+    , test "op_FX29: Set I = location of sprite for digit Vx"
+        (\_ ->
+            op_FX29 0xFA29 defaultCpu
+            |> Expect.all
+                [ \cpu -> Array.get cpu.i cpu.memory |> Expect.equal ( Just 0xF0)
+                , \cpu -> Array.get (cpu.i + 1) cpu.memory |> Expect.equal ( Just 0x90)
+                , \cpu -> Array.get (cpu.i + 2) cpu.memory |> Expect.equal ( Just 0xF0)
+                , \cpu -> Array.get (cpu.i + 3) cpu.memory |> Expect.equal ( Just 0x90)
+                , \cpu -> Array.get (cpu.i + 4) cpu.memory |> Expect.equal ( Just 0x90)
+                ]
+        )
+
     , test "op_FX33: Store BCD representation of Vx in memory locations I, I+1, and I+2."
         (\_ ->
             let
@@ -616,7 +628,7 @@ opcodes =
                 ]
         )
     
-    , test "op_FX65: Store registers V0 through Vx in memory starting at location I"
+    , test "op_FX65: The interpreter reads values from memory starting at location I into registers V0 through Vx"
         (\_ ->
             let
                 cpu =

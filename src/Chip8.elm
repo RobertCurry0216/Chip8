@@ -207,7 +207,7 @@ getNextOpcode cpu =
   case (byte1, byte2) of
     (Just b1, Just b2) ->
       Ok (  shiftLeftBy 8 b1 |> or b2
-          , { cpu | pc = cpu.pc + 2 }
+          , { cpu | pc = and (cpu.pc + 2) 0xFFF }
           )
     _ ->
       Err "Error getting Op Code"
@@ -620,11 +620,11 @@ op_8XY5 opcode cpu =
 op_8XY6 : Word -> Cpu -> Cpu
 op_8XY6 opcode cpu =
   let
-    vx =
-      getRegValue cpu ( get0X00 opcode )
+    vy =
+      getRegValue cpu ( get00Y0 opcode )
 
     (value, overflow) =
-      shr8 vx
+      shr8 vy
 
     registers =
       cpu.registers
@@ -668,11 +668,11 @@ op_8XY7 opcode cpu =
 op_8XYE : Word -> Cpu -> Cpu
 op_8XYE opcode cpu =
   let
-    vx =
-      getRegValue cpu ( get0X00 opcode )
+    vy =
+      getRegValue cpu ( get00Y0 opcode )
 
     (value, overflow) =
-      shl8 vx
+      shl8 vy
 
     registers =
       cpu.registers
@@ -827,13 +827,15 @@ op_DXYN opcode cpu =
 op_EX9E : Word -> Cpu -> Cpu
 op_EX9E opcode cpu =
   let
+    vx =
+      getRegValue cpu ( get0X00 opcode )
     keydown =
       cpu.keys
-      |> Array.get ( get0X00 opcode)
+      |> Array.get vx
       |> Maybe.withDefault False
   in
   if keydown then
-    { cpu | pc = cpu.pc + 2 }
+    { cpu | pc = and (cpu.pc + 2) 0xFFF }
   else 
     cpu
 
@@ -844,15 +846,18 @@ op_EX9E opcode cpu =
 op_EXA1 : Word -> Cpu -> Cpu
 op_EXA1 opcode cpu =
   let
+    vx = 
+      getRegValue cpu ( get0X00 opcode )
+
     keydown =
       cpu.keys
-      |> Array.get ( get0X00 opcode)
+      |> Array.get vx
       |> Maybe.withDefault False
   in
   if keydown then
     cpu
   else 
-    { cpu | pc = cpu.pc + 2 }
+    { cpu | pc = and (cpu.pc + 2) 0xFFF }
 
 
 -- Fx07 - LD Vx, DT
@@ -975,6 +980,7 @@ op_FX55 opcode cpu =
   |> Array.toList
   |> List.take ((get0X00 opcode) + 1)
   |> loadIntoMemory cpu cpu.i
+  |> \cpuOut -> {cpuOut | i = cpuOut.i + (get0X00 opcode) + 1}
 
 
 -- Fx65 - LD Vx, [I]
@@ -982,13 +988,15 @@ op_FX55 opcode cpu =
 -- The interpreter reads values from memory starting at location I into registers V0 through Vx.
 op_FX65 : Word -> Cpu -> Cpu
 op_FX65 opcode cpu =
-  get0X00 opcode
-  |> (+) 1
+  let
+      x = get0X00 opcode
+  in  
+  x + 1
   |> List.range 0
   |> List.foldl (\off regIn -> 
     Array.get (cpu.i + off) cpu.memory
     |> Maybe.withDefault 0
     |> \v -> Array.set off v regIn
   ) cpu.registers
-  |> \reg -> { cpu | registers = reg }
+  |> \reg -> { cpu | registers = reg, i = cpu.i + x + 1 }
 

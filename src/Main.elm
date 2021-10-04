@@ -1,42 +1,45 @@
 module Main exposing (..)
 
-import Html exposing 
-    ( Html
-    , div
-    , main_
-    , button
-    , nav
-    , ul
-    , li
-    , strong
-    , select
-    , option
-    , h1
-    )
-import Html.Events as E
+import Array exposing (Array)
 import Browser
-import Time
+import Browser.Events
+import Chip8
+    exposing
+        ( Byte
+        , Cpu
+        , defaultCpu
+        , doNextOp
+        , emptyBuffer
+        , endWait
+        , insertRnd
+        , loadIntoMemory
+        , updateTimers
+        )
+import Dict
+import Html
+    exposing
+        ( Html
+        , button
+        , div
+        , h1
+        , li
+        , main_
+        , nav
+        , option
+        , select
+        , strong
+        , ul
+        )
+import Html.Attributes exposing (selected)
+import Html.Events as E
+import Json.Decode as Decode
+import Msg exposing (Msg(..))
+import Random
+import Roms exposing (..)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
-import Array exposing (Array)
-import Roms exposing (..)
-import Browser.Events
-import Json.Decode as Decode
-import Dict
-import Chip8 exposing 
-    ( Cpu
-    , Byte
-    , loadIntoMemory
-    , defaultCpu
-    , emptyBuffer
-    , updateTimers
-    , doNextOp
-    , insertRnd
-    , endWait
-    )
-import Random
-import Msg exposing ( Msg(..) )
-import Html.Attributes exposing (selected)
+import Time
+
 
 
 ---- MODEL ----
@@ -52,17 +55,17 @@ type alias Model =
 init : ( Model, Cmd Msg )
 init =
     let
-        rom = 
+        rom =
             Dict.get "welcome" roms
-            |> Maybe.withDefault []
+                |> Maybe.withDefault []
     in
-    
-    ( { cpu = loadIntoMemory defaultCpu 0x200 rom
+    ( { cpu = loadIntoMemory defaultCpu 0x0200 rom
       , screen = emptyBuffer
       , run = True
       }
     , Cmd.none
     )
+
 
 
 ---- UPDATE ----
@@ -71,72 +74,72 @@ init =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-    
-    -- emulator handlers
+        -- emulator handlers
+        UpdateScreen ->
+            ( { model
+                | screen = model.cpu.screenBuffer
+                , cpu = updateTimers model.cpu
+              }
+            , Cmd.none
+            )
 
-    UpdateScreen ->
-        ( { model
-          | screen = model.cpu.screenBuffer
-          , cpu = updateTimers model.cpu
-          }, Cmd.none )
+        Tick ->
+            doNextOp model.cpu
+                |> (\( cpu, chipMsg ) ->
+                        update chipMsg { model | cpu = cpu }
+                   )
 
-    Tick ->
-        doNextOp model.cpu
-        |> \(cpu, chipMsg) ->
-                update chipMsg { model | cpu = cpu }
+        SetEmulatorRun b ->
+            ( { model | run = b }
+            , Cmd.none
+            )
 
-    SetEmulatorRun b ->
-        ( {model | run = b}
-        , Cmd.none
-        )
+        LoadRom name ->
+            case Dict.get name roms of
+                Just rom ->
+                    ( { cpu = loadIntoMemory defaultCpu 0x0200 rom
+                      , screen = emptyBuffer
+                      , run = False
+                      }
+                    , Cmd.none
+                    )
 
-    LoadRom name ->
-        case Dict.get name roms of
-            Just rom ->
-                ( { cpu = loadIntoMemory defaultCpu 0x200 rom
-                , screen = emptyBuffer
-                , run = False
-                }
-                , Cmd.none
-                )
-            Nothing ->
-                update ( SetEmulatorRun False) model
+                Nothing ->
+                    update (SetEmulatorRun False) model
 
-    -- emulator op runners
+        -- emulator op runners
+        Continue ->
+            ( model
+            , Cmd.none
+            )
 
-    Continue ->
-        ( model
-        , Cmd.none 
-        )
+        FetchRandom a b ->
+            ( model
+            , Random.generate SetRandom (Random.int a b)
+            )
 
-    FetchRandom a b ->
-        ( model
-        , Random.generate SetRandom (Random.int a b)
-        )
-    
-    SetRandom rnd ->
-        ( { model | cpu = insertRnd rnd model.cpu }
-        , Cmd.none
-        )
+        SetRandom rnd ->
+            ( { model | cpu = insertRnd rnd model.cpu }
+            , Cmd.none
+            )
 
-    -- input handlers
+        -- input handlers
+        InputPressed c ->
+            ( { model
+                | cpu = handleInputDown model.cpu c
+              }
+            , Cmd.none
+            )
 
-    InputPressed c ->
-        (   { model 
-            | cpu = handleInputDown model.cpu c
-            }
-        ,   Cmd.none
-        )
+        InputReleased c ->
+            ( { model
+                | cpu = handleInputUp model.cpu c
+              }
+            , Cmd.none
+            )
 
-    InputReleased c ->
-        (   { model 
-            | cpu = handleInputUp model.cpu c
-            }
-        ,   Cmd.none
-        )
-
-    _ ->
-        (model, Cmd.none)
+        _ ->
+            ( model, Cmd.none )
 
 
 
@@ -150,44 +153,63 @@ view { screen, run } =
         [ nav []
             [ ul []
                 [ li []
-                    [ h1 [][ strong [][ text "Chip-8"] ] ]
+                    [ h1 [] [ strong [] [ text "Chip-8" ] ] ]
                 ]
             , ul []
-                [ li [][ button [ class "outline", E.onClick <| SetEmulatorRun (not run) ][ text <| if run then "stop" else "start"] ]
+                [ li []
+                    [ button [ class "outline", E.onClick <| SetEmulatorRun (not run) ]
+                        [ text <|
+                            if run then
+                                "stop"
+
+                            else
+                                "start"
+                        ]
+                    ]
                 , li []
                     [ select [ E.onInput LoadRom ]
-                        (
-                            Dict.keys roms
+                        (Dict.keys roms
                             |> List.map
                                 (\k ->
-                                    option [ selected ( k == "welcome") ][ text k ]
+                                    option [ selected (k == "welcome") ] [ text k ]
                                 )
                         )
                     ]
                 ]
             ]
 
-            -- emulator
-            , div [ class "emulator" ]
+        -- emulator
+        , div [ class "emulator" ]
             [ div [ class "screen" ]
                 [ render screen ]
 
             -- inputs
             , div [ class "inputs" ]
-                (
-                    [(1, "1"),(2, "2"),(3, "3"),(0xC, "C")
-                    ,(4, "4"),(5, "5"),(6, "6"),(0xD, "D")
-                    ,(7, "7"),(8, "8"),(9, "9"),(0xE, "E")
-                    ,(0xA, "A"),(0, "0"),(0xB, "B"),(0xF, "F")
-                    ]
+                ([ ( 1, "1" )
+                 , ( 2, "2" )
+                 , ( 3, "3" )
+                 , ( 0x0C, "C" )
+                 , ( 4, "4" )
+                 , ( 5, "5" )
+                 , ( 6, "6" )
+                 , ( 0x0D, "D" )
+                 , ( 7, "7" )
+                 , ( 8, "8" )
+                 , ( 9, "9" )
+                 , ( 0x0E, "E" )
+                 , ( 0x0A, "A" )
+                 , ( 0, "0" )
+                 , ( 0x0B, "B" )
+                 , ( 0x0F, "F" )
+                 ]
                     |> List.map
-                        (\(v, t) ->
-                            button 
+                        (\( v, t ) ->
+                            button
                                 [ class "secondary"
                                 , E.onMouseDown (InputPressed v)
                                 , E.onMouseUp (InputReleased v)
                                 ]
-                                [text t]
+                                [ text t ]
                         )
                 )
             ]
@@ -197,22 +219,33 @@ view { screen, run } =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-    [ if model.run then Time.every (1000 / 60) (\_ -> UpdateScreen) else Sub.none
-    , if model.run then Time.every (1000 / 400) (\_ -> Tick) else Sub.none
-    , Browser.Events.onKeyDown (keyEvent keyPressed)
-    , Browser.Events.onKeyUp (keyEvent keyReleased)
-    ]
+        [ if model.run then
+            Time.every (1000 / 60) (\_ -> UpdateScreen)
+
+          else
+            Sub.none
+        , if model.run then
+            Time.every (1000 / 400) (\_ -> Tick)
+
+          else
+            Sub.none
+        , Browser.Events.onKeyDown (keyEvent keyPressed)
+        , Browser.Events.onKeyUp (keyEvent keyReleased)
+        ]
+
 
 
 ---- INPUT ----
 
+
 toKey : (Char -> Msg) -> String -> Msg
 toKey msg string =
     case String.uncons string of
-    Just (char, "") ->
-        msg char
-    _ -> 
-        Noop
+        Just ( char, "" ) ->
+            msg char
+
+        _ ->
+            Noop
 
 
 keyEvent : (Char -> Msg) -> Decode.Decoder Msg
@@ -223,57 +256,60 @@ keyEvent msg =
 keyPressed : Char -> Msg
 keyPressed c =
     case Dict.get c keyMap of
-    Just i ->
-        InputPressed i
-    Nothing ->
-        Noop
+        Just i ->
+            InputPressed i
+
+        Nothing ->
+            Noop
 
 
 keyReleased : Char -> Msg
 keyReleased c =
     case Dict.get c keyMap of
-    Just i ->
-        InputReleased i
-    Nothing ->
-        Noop
+        Just i ->
+            InputReleased i
+
+        Nothing ->
+            Noop
 
 
 keyMap : Dict.Dict Char Int
 keyMap =
     Dict.fromList
-    [ ('q', 0)
-    , ('w', 1)
-    , ('e', 2)
-    , ('a', 3)
-    , ('s', 4)
-    , ('d', 5)
-    , ('z', 6)
-    , ('x', 7)
-    , ('c', 8)
-    , ('r', 9)
-    , ('f', 10)
-    , ('v', 11)
-    , ('t', 12)
-    , ('g', 13)
-    , ('b', 14)
-    , (' ', 15)
-    ]
+        [ ( 'q', 0 )
+        , ( 'w', 1 )
+        , ( 'e', 2 )
+        , ( 'a', 3 )
+        , ( 's', 4 )
+        , ( 'd', 5 )
+        , ( 'z', 6 )
+        , ( 'x', 7 )
+        , ( 'c', 8 )
+        , ( 'r', 9 )
+        , ( 'f', 10 )
+        , ( 'v', 11 )
+        , ( 't', 12 )
+        , ( 'g', 13 )
+        , ( 'b', 14 )
+        , ( ' ', 15 )
+        ]
 
 
 handleInputDown : Cpu -> Int -> Cpu
 handleInputDown cpuIn c =
     { cpuIn
-    | keys = Array.set c True cpuIn.keys
+        | keys = Array.set c True cpuIn.keys
     }
-    |> endWait c
-
+        |> endWait c
 
 
 handleInputUp : Cpu -> Int -> Cpu
 handleInputUp cpuIn c =
     { cpuIn
-    | keys = Array.set c False cpuIn.keys
+        | keys = Array.set c False cpuIn.keys
     }
+
+
 
 ---- PROGRAM ----
 
@@ -291,7 +327,8 @@ main =
 
 ---- Chip 8 helpers ----
 
-getCoords : Int -> (Int, Int)
+
+getCoords : Int -> ( Int, Int )
 getCoords idx =
     let
         x =
@@ -300,36 +337,37 @@ getCoords idx =
         y =
             idx // 64
     in
-    (x*10, y*10)
+    ( x * 10, y * 10 )
 
 
 render : Array Byte -> Html msg
 render screen =
     screen
-    |> Array.toList
-    |> List.map (\bit -> bit == 1)
-    |> List.indexedMap 
-        (\i v -> 
-            if v then
-                Just <| getCoords i
-            else 
-                Nothing
-        )
-    |> List.filterMap identity
-    |> List.map
-        (\(a, b) -> 
-            rect
-                [ x (String.fromInt a)
-                , y (String.fromInt b)
-                , width "10"
-                , height "10"
-                , fill "black"
-                , stroke "grey"
-                ]
-                []
-        )
-    |> svg
-        [ viewBox "0 0 640 320"
-        , width "640"
-        , height "320"
-        ]
+        |> Array.toList
+        |> List.map (\bit -> bit == 1)
+        |> List.indexedMap
+            (\i v ->
+                if v then
+                    Just <| getCoords i
+
+                else
+                    Nothing
+            )
+        |> List.filterMap identity
+        |> List.map
+            (\( a, b ) ->
+                rect
+                    [ x (String.fromInt a)
+                    , y (String.fromInt b)
+                    , width "10"
+                    , height "10"
+                    , fill "black"
+                    , stroke "grey"
+                    ]
+                    []
+            )
+        |> svg
+            [ viewBox "0 0 640 320"
+            , width "640"
+            , height "320"
+            ]

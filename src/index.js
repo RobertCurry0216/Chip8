@@ -22,6 +22,20 @@ const extractRom = (name) => {
   return byteList;
 }
 
+const readfile = (path) => {
+  fetch(path)
+  .then(
+    res => {
+      res.body.getReader().read()
+      .then(
+        text => console.log(text)
+      )
+    }
+  );
+}
+
+readfile("./src/test.txt")
+
 Elm.Main.init({
   node: document.getElementById('root')
 });

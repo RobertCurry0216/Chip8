@@ -574,13 +574,19 @@ opcodes =
 
     , test "op_FX29: Set I = location of sprite for digit Vx"
         (\_ ->
-            op_FX29 0xFA29 defaultCpu
+            let
+                cpuIn =
+                    { defaultCpu
+                    | registers = Array.set 1 0xA emptyRegisters
+                    }    
+            in
+            op_FX29 0xF129 cpuIn
             |> Expect.all
-                [ \cpu -> Array.get cpu.i cpu.memory |> Expect.equal ( Just 0xF0)
-                , \cpu -> Array.get (cpu.i + 1) cpu.memory |> Expect.equal ( Just 0x90)
-                , \cpu -> Array.get (cpu.i + 2) cpu.memory |> Expect.equal ( Just 0xF0)
-                , \cpu -> Array.get (cpu.i + 3) cpu.memory |> Expect.equal ( Just 0x90)
-                , \cpu -> Array.get (cpu.i + 4) cpu.memory |> Expect.equal ( Just 0x90)
+                [ \cpu -> Array.get cpu.i cpu.memory |> Expect.equal ( Just 0xF0 )
+                , \cpu -> Array.get (cpu.i + 1) cpu.memory |> Expect.equal ( Just 0x90 )
+                , \cpu -> Array.get (cpu.i + 2) cpu.memory |> Expect.equal ( Just 0xF0 )
+                , \cpu -> Array.get (cpu.i + 3) cpu.memory |> Expect.equal ( Just 0x90 )
+                , \cpu -> Array.get (cpu.i + 4) cpu.memory |> Expect.equal ( Just 0x90 )
                 ]
         )
 

@@ -2,39 +2,9 @@ import './main.css';
 import './pico.css';
 import { Elm } from './Main.elm';
 import * as serviceWorker from './serviceWorker';
-// import fs from 'fs';
-//  Buffer = require('buffer').Buffer;
+import {loadRom} from './roms/index'
 
-const extractRom = (name) => {
-  const byteList = []
-  fs.open(`src/roms/${name}`, 'r', function(err, fd) {
-    if (err)
-      throw err;
-    var buffer = Buffer.alloc(1);
-    while (true)
-    {   
-      var num = fs.readSync(fd, buffer, 0, 1, null);
-      if (num === 0)
-        break;
-      byteList.push(buffer[0]);
-    }
-  });
-  return byteList;
-}
-
-const readfile = (path) => {
-  fetch(path)
-  .then(
-    res => {
-      res.body.getReader().read()
-      .then(
-        text => console.log(text)
-      )
-    }
-  );
-}
-
-readfile("./src/test.txt")
+loadRom("Missile").then(d => console.log({rom: d}));
 
 Elm.Main.init({
   node: document.getElementById('root')

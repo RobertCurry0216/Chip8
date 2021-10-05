@@ -1,4 +1,4 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import Array exposing (Array)
 import Browser
@@ -14,6 +14,7 @@ import Chip8
         , insertRnd
         , loadIntoMemory
         , updateTimers
+        , defaultScreen
         )
 import Dict
 import Html
@@ -35,11 +36,16 @@ import Html.Events as E
 import Json.Decode as Decode
 import Msg exposing (Msg(..))
 import Random
-import Roms exposing (..)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Time
 
+
+---- ports ----
+
+port fetchRom : String -> Cmd msg
+
+port loadRom : (List Int -> msg) -> Sub msg
 
 
 ---- MODEL ----
@@ -54,14 +60,9 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    let
-        rom =
-            Dict.get "welcome" roms
-                |> Maybe.withDefault []
-    in
-    ( { cpu = loadIntoMemory defaultCpu 0x0200 rom
-      , screen = emptyBuffer
-      , run = True
+    ( { cpu = defaultCpu
+      , screen = defaultScreen
+      , run = False
       }
     , Cmd.none
     )
@@ -94,19 +95,6 @@ update msg model =
             , Cmd.none
             )
 
-        LoadRom name ->
-            case Dict.get name roms of
-                Just rom ->
-                    ( { cpu = loadIntoMemory defaultCpu 0x0200 rom
-                      , screen = emptyBuffer
-                      , run = False
-                      }
-                    , Cmd.none
-                    )
-
-                Nothing ->
-                    update (SetEmulatorRun False) model
-
         -- emulator op runners
         Continue ->
             ( model
@@ -138,6 +126,20 @@ update msg model =
             , Cmd.none
             )
 
+        -- interop
+        FetchRom name ->
+            ( model
+            , fetchRom name
+            )
+
+        LoadRom rom ->
+            ( { cpu = loadIntoMemory defaultCpu 0x0200 rom
+                , screen = emptyBuffer
+                , run = True
+                }
+            , Cmd.none
+            )
+
         _ ->
             ( model, Cmd.none )
 
@@ -157,7 +159,8 @@ view { screen, run } =
                 ]
             , ul []
                 [ li []
-                    [ button [ class "outline", E.onClick <| SetEmulatorRun (not run) ]
+                    --[ button [ class "outline", E.onClick <| SetEmulatorRun (not run) ]
+                    [ button [ class "outline", E.onClick <| FetchRom "Missile" ]
                         [ text <|
                             if run then
                                 "stop"
@@ -167,8 +170,8 @@ view { screen, run } =
                         ]
                     ]
                 , li []
-                    [ select [ E.onInput LoadRom ]
-                        (Dict.keys roms
+                    [ select [ E.onInput (\_ -> Noop) ]
+                        (Dict.keys Dict.empty
                             |> List.map
                                 (\k ->
                                     option [ selected (k == "welcome") ] [ text k ]
@@ -229,8 +232,11 @@ subscriptions model =
 
           else
             Sub.none
+
         , Browser.Events.onKeyDown (keyEvent keyPressed)
         , Browser.Events.onKeyUp (keyEvent keyReleased)
+
+        , loadRom LoadRom
         ]
 
 

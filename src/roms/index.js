@@ -1,14 +1,13 @@
 import pong from './PONG';
 import puzzle from './PUZZLE';
 import missile from './MISSILE';
+import tetris from './TETRIS';
 
 const roms = {
+  ["Pong"]: pong,
   ["Puzzle"]: puzzle,
-  ["Missile"]: missile
-}
-
-const parseData = (data) => {
-  return [...data].map(c => c.charCodeAt());
+  ["Missile"]: missile,
+  ["Tetris"]: tetris
 }
 
 export const loadRom = (name) => {
@@ -17,6 +16,7 @@ export const loadRom = (name) => {
     return Promise.resolve([]);
 
   return fetch(path)
-  .then(r => r.text())
-  .then(d => parseData(d))
+  .then(r => r.arrayBuffer())
+  .then(d => [...new Uint8Array(d)])
+  .catch(err => console.log(err))
 }

@@ -33,6 +33,7 @@ import Html
         )
 import Html.Attributes exposing (selected)
 import Html.Events as E
+import Html.Events exposing (on)
 import Json.Decode as Decode
 import Msg exposing (Msg(..))
 import Random
@@ -184,7 +185,7 @@ view { screen, run, roms } =
             ]
 
         -- emulator
-        , div [ class "emulator" ]
+        , div [ class "container emulator" ]
             [ div [ class "screen" ]
                 [ render screen ]
 
@@ -213,6 +214,8 @@ view { screen, run, roms } =
                                 [ class "secondary"
                                 , E.onMouseDown (InputPressed v)
                                 , E.onMouseUp (InputReleased v)
+                                , E.on "touchstart" <| Decode.succeed (InputPressed v)
+                                , E.on "touchend" <| Decode.succeed (InputReleased v)
                                 ]
                                 [ text t ]
                         )

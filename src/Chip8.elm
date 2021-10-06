@@ -547,8 +547,7 @@ op_00EE _ cpu =
             }
 
         _ ->
-            Debug.log "OOEE warning: no stack"
-                cpu
+            cpu
 
 
 

@@ -55,14 +55,16 @@ type alias Model =
     { cpu : Cpu
     , screen : Array Byte
     , run : Bool
+    , roms : List String
     }
 
 
-init : ( Model, Cmd Msg )
-init =
+init : List String -> ( Model, Cmd Msg )
+init roms =
     ( { cpu = defaultCpu
       , screen = defaultScreen
       , run = False
+      , roms = roms
       }
     , Cmd.none
     )
@@ -133,7 +135,8 @@ update msg model =
             )
 
         LoadRom rom ->
-            ( { cpu = loadIntoMemory defaultCpu 0x0200 rom
+            ( { model
+                | cpu = loadIntoMemory defaultCpu 0x0200 rom
                 , screen = emptyBuffer
                 , run = True
                 }
@@ -149,7 +152,7 @@ update msg model =
 
 
 view : Model -> Html Msg
-view { screen, run } =
+view { screen, run, roms } =
     main_ [ class "container" ]
         -- nav bar
         [ nav []
@@ -159,8 +162,7 @@ view { screen, run } =
                 ]
             , ul []
                 [ li []
-                    --[ button [ class "outline", E.onClick <| SetEmulatorRun (not run) ]
-                    [ button [ class "outline", E.onClick <| FetchRom "Missile" ]
+                    [ button [ class "outline", E.onClick <| SetEmulatorRun (not run) ]
                         [ text <|
                             if run then
                                 "stop"
@@ -170,8 +172,8 @@ view { screen, run } =
                         ]
                     ]
                 , li []
-                    [ select [ E.onInput (\_ -> Noop) ]
-                        (Dict.keys Dict.empty
+                    [ select [ E.onInput FetchRom ]
+                        ( roms
                             |> List.map
                                 (\k ->
                                     option [ selected (k == "welcome") ] [ text k ]
@@ -320,11 +322,11 @@ handleInputUp cpuIn c =
 ---- PROGRAM ----
 
 
-main : Program () Model Msg
+main : Program (List String) Model Msg
 main =
     Browser.element
         { view = view
-        , init = \_ -> init
+        , init = init
         , update = update
         , subscriptions = subscriptions
         }

@@ -13,11 +13,17 @@ svg {
   background-color: lightgray;
 }
 
+.container {
+  padding-top: 0;
+}
+
 .emulator {
   display: flex;
   width: 100%;
   flex-wrap: wrap;
   justify-content: center;
+  padding-top: 1rem;
+  padding-bottom: 3rem;
 }
 
 .screen {

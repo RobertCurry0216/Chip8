@@ -30,16 +30,24 @@ import Html
         , select
         , strong
         , ul
+        , details
+        , summary
+        , h2
+        , code
         )
+
+import Html.Attributes as A
 import Html.Attributes exposing (selected)
 import Html.Events as E
-import Html.Events exposing (on)
 import Json.Decode as Decode
 import Msg exposing (Msg(..))
 import Random
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Time
+import Html exposing (span)
+import Html exposing (h4)
+import Html exposing (br)
 
 
 ---- ports ----
@@ -47,6 +55,8 @@ import Time
 port fetchRom : String -> Cmd msg
 
 port loadRom : (List Int -> msg) -> Sub msg
+
+port playSound : () -> Cmd msg
 
 
 ---- MODEL ----
@@ -57,6 +67,7 @@ type alias Model =
     , screen : Array Byte
     , run : Bool
     , roms : List String
+    , audioOn : Bool
     }
 
 
@@ -66,6 +77,7 @@ init roms =
       , screen = defaultScreen
       , run = False
       , roms = roms
+      , audioOn = True
       }
     , Cmd.none
     )
@@ -84,7 +96,10 @@ update msg model =
                 | screen = model.cpu.screenBuffer
                 , cpu = updateTimers model.cpu
               }
-            , Cmd.none
+            , if model.cpu.timerSound > 0 && model.audioOn then
+                playSound ()
+              else
+                Cmd.none
             )
 
         Tick ->
@@ -95,6 +110,11 @@ update msg model =
 
         SetEmulatorRun b ->
             ( { model | run = b }
+            , Cmd.none
+            )
+
+        ToggleSound ->
+            ( { model | audioOn = not model.audioOn}
             , Cmd.none
             )
 
@@ -153,7 +173,7 @@ update msg model =
 
 
 view : Model -> Html Msg
-view { screen, run, roms } =
+view { screen, run, roms, audioOn } =
     main_ [ class "container" ]
         -- nav bar
         [ nav []
@@ -163,7 +183,16 @@ view { screen, run, roms } =
                 ]
             , ul []
                 [ li []
-                    [ button [ class "outline", E.onClick <| SetEmulatorRun (not run) ]
+                    [ select [ E.onInput FetchRom ]
+                        ( roms
+                            |> List.map
+                                (\k ->
+                                    option [ selected (k == "welcome") ] [ text k ]
+                                )
+                        )
+                    ]
+                , li []
+                    [ button [ E.onClick <| SetEmulatorRun (not run) ]
                         [ text <|
                             if run then
                                 "stop"
@@ -173,19 +202,20 @@ view { screen, run, roms } =
                         ]
                     ]
                 , li []
-                    [ select [ E.onInput FetchRom ]
-                        ( roms
-                            |> List.map
-                                (\k ->
-                                    option [ selected (k == "welcome") ] [ text k ]
-                                )
-                        )
+                    [ button 
+                        [ class <| if audioOn then "" else "secondary"
+                        , A.style "text-decoration"
+                            <| if audioOn then "none" else "line-through" 
+                        , E.onClick
+                            <| ToggleSound
+                        ]
+                        [ text "sound" ]
                     ]
                 ]
             ]
 
         -- emulator
-        , div [ class "container emulator" ]
+        , div [ class "emulator" ]
             [ div [ class "screen" ]
                 [ render screen ]
 
@@ -220,6 +250,22 @@ view { screen, run, roms } =
                                 [ text t ]
                         )
                 )
+            ]
+
+        -- more info
+        , details []
+            [ summary [][ text "more info"]
+            , h4 []
+                [ text "keyboard mappings"]
+            , code []
+                [ text "|1|2|3|C|  =>  |1|2|3|4|"
+                , br [][]
+                , text "|4|5|6|D|  =>  |Q|W|E|R|"
+                , br [][]
+                , text "|7|8|9|E|  =>  |A|S|D|F|"
+                , br [][]
+                , text "|A|0|B|F|  =>  |Z|X|C|V|"
+                ]
             ]
         ]
 
@@ -284,27 +330,31 @@ keyReleased c =
             Noop
 
 
+
+-- |1|2|3|C|  =>  |1|2|3|4|
+-- |4|5|6|D|  =>  |Q|W|E|R|
+-- |7|8|9|E|  =>  |A|S|D|F|
+-- |A|0|B|F|  =>  |Z|X|C|V|
 keyMap : Dict.Dict Char Int
 keyMap =
     Dict.fromList
-        [ ( 'q', 0 )
-        , ( 'w', 1 )
-        , ( 'e', 2 )
-        , ( 'a', 3 )
-        , ( 's', 4 )
-        , ( 'd', 5 )
-        , ( 'z', 6 )
-        , ( 'x', 7 )
-        , ( 'c', 8 )
-        , ( 'r', 9 )
-        , ( 'f', 10 )
-        , ( 'v', 11 )
-        , ( 't', 12 )
-        , ( 'g', 13 )
-        , ( 'b', 14 )
-        , ( ' ', 15 )
+        [ ( '1', 1 )
+        , ( '2', 2 )
+        , ( '3', 3 )
+        , ( '4', 0xC )
+        , ( 'q', 4 )
+        , ( 'w', 5 )
+        , ( 'e', 6 )
+        , ( 'r', 0xD )
+        , ( 'a', 7 )
+        , ( 's', 8 )
+        , ( 'd', 9 )
+        , ( 'f', 0xE )
+        , ( 'z', 0xA )
+        , ( 'x', 0 )
+        , ( 'c', 0xB )
+        , ( 'v', 0xF )
         ]
-
 
 handleInputDown : Cpu -> Int -> Cpu
 handleInputDown cpuIn c =

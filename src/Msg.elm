@@ -6,6 +6,7 @@ type Msg
     | Tick
     | InputPressed Int
     | InputReleased Int
+    | ToggleSound
       -- Chip 8 Msgs
     | Continue
     | FetchRandom Int Int

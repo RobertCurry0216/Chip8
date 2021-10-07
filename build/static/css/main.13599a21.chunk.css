@@ -1,4 +1,4 @@
-[data-elm-hot=true]{height:inherit}svg{background-color:#d3d3d3}.emulator{display:flex;width:100%;flex-wrap:wrap;justify-content:center}.screen{margin-right:1rem;margin-bottom:1rem}.inputs{display:grid;max-width:20rem;grid-template-columns:auto auto auto auto;grid-column-gap:1rem}
+[data-elm-hot=true]{height:inherit}svg{background-color:#d3d3d3}.container{padding-top:0}.emulator{display:flex;width:100%;flex-wrap:wrap;justify-content:center;padding-top:1rem;padding-bottom:3rem}.screen{margin-right:1rem;margin-bottom:1rem}.inputs{display:grid;max-width:20rem;grid-template-columns:auto auto auto auto;grid-column-gap:1rem}
 /*!
  * Pico.css v1.3.3 (https://picocss.com)
  * Copyright 2019-2021 - Licensed under MIT

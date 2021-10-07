@@ -32,8 +32,9 @@ import Html
         , ul
         , details
         , summary
-        , h2
+        , h4
         , code
+        , br
         )
 
 import Html.Attributes as A
@@ -45,9 +46,6 @@ import Random
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Time
-import Html exposing (span)
-import Html exposing (h4)
-import Html exposing (br)
 
 
 ---- ports ----

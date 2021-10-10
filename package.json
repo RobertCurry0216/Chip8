@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "gh-pages": "^3.2.3"
+  },
+  "dependencies": {
+    "tuicss": "^2.1.1"
   }
 }

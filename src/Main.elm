@@ -18,6 +18,7 @@ import Chip8
         )
 import Dict
 import Html
+import Html
     exposing
         ( Html
         , button
@@ -172,25 +173,25 @@ update msg model =
 
 view : Model -> Html Msg
 view { screen, run, roms, audioOn } =
-    main_ [ class "container" ]
+    main_ [ class "" ]
         -- nav bar
-        [ nav []
+        [ nav [ class "tui-nav"]
             [ ul []
                 [ li []
-                    [ h1 [] [ strong [] [ text "Chip-8" ] ] ]
-                ]
-            , ul []
-                [ li []
-                    [ select [ E.onInput FetchRom ]
-                        ( roms
-                            |> List.map
-                                (\k ->
-                                    option [ selected (k == "welcome") ] [ text k ]
-                                )
-                        )
-                    ]
+                    [ h1 [ class "red-168-text" ] [ strong [] [ text "Chip-8" ] ] ]
+                
+                ,  li [ class "tui-dropdown" ]
+                        [ select [ E.onInput FetchRom ]
+                            ( roms
+                                |> List.map
+                                    (\k ->
+                                        option [ selected (k == "welcome") ] [ text k ]
+                                    )
+                            )
+                        ]
+
                 , li []
-                    [ button [ E.onClick <| SetEmulatorRun (not run) ]
+                    [ Html.a [ E.onClick <| SetEmulatorRun (not run) ]
                         [ text <|
                             if run then
                                 "stop"
@@ -199,8 +200,9 @@ view { screen, run, roms, audioOn } =
                                 "start"
                         ]
                     ]
+
                 , li []
-                    [ button 
+                    [ Html.a 
                         [ class <| if audioOn then "" else "secondary"
                         , A.style "text-decoration"
                             <| if audioOn then "none" else "line-through" 
@@ -212,57 +214,62 @@ view { screen, run, roms, audioOn } =
                 ]
             ]
 
-        -- emulator
-        , div [ class "emulator" ]
-            [ div [ class "screen" ]
-                [ render screen ]
+        , div [class "container"]
+            [
+            -- emulator
+            div [ class "emulator" ]
+                [ div [class "tui-window white-168" ]
+                    [ Html.fieldset []
+                        [ Html.legend [ A.align "center"][ text "emulator"]
+                        , render screen 
+                        , div [ class "inputs" ]
+                            ([ ( 1, "1" )
+                            , ( 2, "2" )
+                            , ( 3, "3" )
+                            , ( 0x0C, "C" )
+                            , ( 4, "4" )
+                            , ( 5, "5" )
+                            , ( 6, "6" )
+                            , ( 0x0D, "D" )
+                            , ( 7, "7" )
+                            , ( 8, "8" )
+                            , ( 9, "9" )
+                            , ( 0x0E, "E" )
+                            , ( 0x0A, "A" )
+                            , ( 0, "0" )
+                            , ( 0x0B, "B" )
+                            , ( 0x0F, "F" )
+                            ]
+                                |> List.map
+                                    (\( v, t ) ->
+                                        button
+                                            [ class "tui-button"
+                                            , E.onMouseDown (InputPressed v)
+                                            , E.onMouseUp (InputReleased v)
+                                            , E.on "touchstart" <| Decode.succeed (InputPressed v)
+                                            , E.on "touchend" <| Decode.succeed (InputReleased v)
+                                            ]
+                                            [ text t ]
+                                    )
+                            )
+                        ]
+                    ]
+                ]
 
-            -- inputs
-            , div [ class "inputs" ]
-                ([ ( 1, "1" )
-                 , ( 2, "2" )
-                 , ( 3, "3" )
-                 , ( 0x0C, "C" )
-                 , ( 4, "4" )
-                 , ( 5, "5" )
-                 , ( 6, "6" )
-                 , ( 0x0D, "D" )
-                 , ( 7, "7" )
-                 , ( 8, "8" )
-                 , ( 9, "9" )
-                 , ( 0x0E, "E" )
-                 , ( 0x0A, "A" )
-                 , ( 0, "0" )
-                 , ( 0x0B, "B" )
-                 , ( 0x0F, "F" )
-                 ]
-                    |> List.map
-                        (\( v, t ) ->
-                            button
-                                [ class "secondary"
-                                , E.onMouseDown (InputPressed v)
-                                , E.onMouseUp (InputReleased v)
-                                , E.on "touchstart" <| Decode.succeed (InputPressed v)
-                                , E.on "touchend" <| Decode.succeed (InputReleased v)
-                                ]
-                                [ text t ]
-                        )
-                )
-            ]
-
-        -- more info
-        , details []
-            [ summary [][ text "more info"]
-            , h4 []
-                [ text "keyboard mappings"]
-            , code []
-                [ text "|1|2|3|C|  =>  |1|2|3|4|"
-                , br [][]
-                , text "|4|5|6|D|  =>  |Q|W|E|R|"
-                , br [][]
-                , text "|7|8|9|E|  =>  |A|S|D|F|"
-                , br [][]
-                , text "|A|0|B|F|  =>  |Z|X|C|V|"
+            -- more info
+            , details []
+                [ summary [][ text "more info"]
+                , h4 []
+                    [ text "keyboard mappings"]
+                , code []
+                    [ text "|1|2|3|C|  =>  |1|2|3|4|"
+                    , br [][]
+                    , text "|4|5|6|D|  =>  |Q|W|E|R|"
+                    , br [][]
+                    , text "|7|8|9|E|  =>  |A|S|D|F|"
+                    , br [][]
+                    , text "|A|0|B|F|  =>  |Z|X|C|V|"
+                    ]
                 ]
             ]
         ]

@@ -1,5 +1,5 @@
 import './main.css';
-import './pico.css';
+import 'tuicss';
 import { Elm } from './Main.elm';
 import {loadRom, roms} from './roms/index';
 import beepsfx from './assets/beep.mp3';

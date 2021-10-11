@@ -1,13 +1,15 @@
 {
-  "main.css": "./static/css/main.13599a21.chunk.css",
-  "main.js": "./static/js/main.f9cfcfa4.chunk.js",
-  "main.js.map": "./static/js/main.f9cfcfa4.chunk.js.map",
+  "main.css": "./static/css/main.db84c1a9.chunk.css",
+  "main.js": "./static/js/main.df9bd636.chunk.js",
+  "main.js.map": "./static/js/main.df9bd636.chunk.js.map",
   "runtime~main.js": "./static/js/runtime~main.d5752d2f.js",
   "runtime~main.js.map": "./static/js/runtime~main.d5752d2f.js.map",
-  "vendors~main.js": "./static/js/vendors~main.0b49ec49.chunk.js",
-  "vendors~main.js.map": "./static/js/vendors~main.0b49ec49.chunk.js.map",
+  "vendors~main.css": "./static/css/vendors~main.d419ad04.chunk.css",
+  "vendors~main.js": "./static/js/vendors~main.727877fe.chunk.js",
+  "vendors~main.js.map": "./static/js/vendors~main.727877fe.chunk.js.map",
   "./service-worker.js": "././service-worker.js",
   "index.html": "./index.html",
   "manifest.json": "./manifest.json",
-  "precache-manifest.4ba8f7047afaf01939f3895ec35f0063.js": "./precache-manifest.4ba8f7047afaf01939f3895ec35f0063.js"
+  "precache-manifest.a11ec6bcd4172888cc455c2c0ea84253.js": "./precache-manifest.a11ec6bcd4172888cc455c2c0ea84253.js",
+  "static/media/tuicss.min.css": "./static/media/Perfect DOS VGA 437 Win.29ef71f9.ttf"
 }

@@ -23,23 +23,18 @@ import Html
         ( Html
         , button
         , div
-        , h1
         , li
         , main_
         , nav
-        , option
-        , select
         , strong
         , ul
-        , details
-        , summary
-        , h4
-        , code
         , br
+        , span
+        , fieldset
         )
 
 import Html.Attributes as A
-import Html.Attributes exposing (selected)
+import Html.Attributes exposing (attribute)
 import Html.Events as E
 import Json.Decode as Decode
 import Msg exposing (Msg(..))
@@ -176,18 +171,22 @@ view { screen, run, roms, audioOn } =
     main_ [ class "" ]
         -- nav bar
         [ nav [ class "tui-nav"]
-            [ ul []
+            [ span [ class "tui-datetime", A.attribute "data-format" "h:m:s a"][]
+            , ul []
                 [ li []
-                    [ h1 [ class "red-168-text" ] [ strong [] [ text "Chip-8" ] ] ]
-                
+                    [ span [ class "red-168-text" ] [ strong [] [ text "Chip-8" ] ] ]
+               
                 ,  li [ class "tui-dropdown" ]
-                        [ select [ E.onInput FetchRom ]
-                            ( roms
-                                |> List.map
-                                    (\k ->
-                                        option [ selected (k == "welcome") ] [ text k ]
-                                    )
-                            )
+                        [ span [][ text "games"]
+                        , div [ class "tui-dropdown-content"]
+                            [ fieldset [ class "tui-fieldset"]
+                                ( roms
+                                    |> List.map
+                                        (\k ->
+                                            Html.a [ E.onClick <| FetchRom k][ text k]
+                                        )
+                                )
+                            ]
                         ]
 
                 , li []
@@ -209,7 +208,26 @@ view { screen, run, roms, audioOn } =
                         , E.onClick
                             <| ToggleSound
                         ]
-                        [ text "sound" ]
+                        [ text "audio" ]
+                    ]
+                
+
+                , li [ class "tui-dropdown"]
+                    [ span [][ text "keyboard" ]
+                    , div [ class "tui-dropdown-content"]
+                        [ fieldset [ class "tui-fieldset kbd"]
+                            [ text "keyboard mapping"
+                            , div [ class "tui-divider"][]
+                            , br [][]
+                            , text "|1|2|3|C|  =>  |1|2|3|4|"
+                            , br [][]
+                            , text "|4|5|6|D|  =>  |Q|W|E|R|"
+                            , br [][]
+                            , text "|7|8|9|E|  =>  |A|S|D|F|"
+                            , br [][]
+                            , text "|A|0|B|F|  =>  |Z|X|C|V|"
+                            ]
+                        ]
                     ]
                 ]
             ]
@@ -219,7 +237,7 @@ view { screen, run, roms, audioOn } =
             -- emulator
             div [ class "emulator" ]
                 [ div [class "tui-window white-168" ]
-                    [ Html.fieldset []
+                    [ fieldset [ class "tui-fieldset"]
                         [ Html.legend [ A.align "center"][ text "emulator"]
                         , render screen 
                         , div [ class "inputs" ]
@@ -253,22 +271,6 @@ view { screen, run, roms, audioOn } =
                                     )
                             )
                         ]
-                    ]
-                ]
-
-            -- more info
-            , details []
-                [ summary [][ text "more info"]
-                , h4 []
-                    [ text "keyboard mappings"]
-                , code []
-                    [ text "|1|2|3|C|  =>  |1|2|3|4|"
-                    , br [][]
-                    , text "|4|5|6|D|  =>  |Q|W|E|R|"
-                    , br [][]
-                    , text "|7|8|9|E|  =>  |A|S|D|F|"
-                    , br [][]
-                    , text "|A|0|B|F|  =>  |Z|X|C|V|"
                     ]
                 ]
             ]

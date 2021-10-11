@@ -44,3 +44,7 @@ svg {
 .tui-button {
   height: 50%;
 }
+
+.kbd {
+  width: 26ch;
+}
